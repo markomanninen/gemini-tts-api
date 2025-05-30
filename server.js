@@ -270,6 +270,11 @@ app.handleMultiTTS = async (params) => {
     const { sessionId, text, speakers } = params;
     if (!genAI) throw new Error("AI Service not initialized. Check GEMINI_API_KEY.");
 
+    // Validate exactly 2 speakers are provided (Google Generative AI requirement)
+    if (!speakers || !Array.isArray(speakers) || speakers.length !== 2) {
+        throw new Error('Exactly 2 speakers required for multi-speaker TTS');
+    }
+
     const ttsModel = genAI.getGenerativeModel({ model: TTS_MODEL });
     const speakerVoiceConfigs = speakers.map(sp => ({
         speaker: sp.name,
@@ -305,8 +310,8 @@ app.post('/api/tts/multi', async (req, res) => {
         if (!text || !speakers || !Array.isArray(speakers) || speakers.length === 0) {
             return res.status(400).json({ success: false, error: 'Text and speakers array are required' });
         }
-        if (speakers.length > 2) {
-            return res.status(400).json({ success: false, error: 'Maximum 2 speakers supported' });
+        if (speakers.length !== 2) {
+            return res.status(400).json({ success: false, error: 'Exactly 2 speakers required for multi-speaker TTS' });
         }
         for (const speaker of speakers) {
             if (!VOICES.includes(speaker.voice)) {
@@ -356,11 +361,11 @@ Guidelines:
 1. User Prompt: "${userPrompt}"
 2. Analyze prompt for taskType.
    a. "single_tts": User provides text for one voice. 'fullTextForTTS' is user's text. Choose 'singleSpeakerVoice', optional 'singleSpeakerStyle'.
-   b. "multi_tts_direct": User provides text with speaker labels (e.g., "Tom: Hi."). 'fullTextForTTS' is user's text. Populate 'multiSpeakerConfig'.
-   c. "generate_script_then_tts": User asks to create content. Formulate 'scriptToGeneratePrompt', define 'scriptSpeakers' (1-2), 'scriptStyle'. Set 'multiSpeakerConfig'.
+   b. "multi_tts_direct": User provides text with speaker labels (e.g., "Tom: Hi."). 'fullTextForTTS' is user's text. Populate 'multiSpeakerConfig' with EXACTLY 2 speakers.
+   c. "generate_script_then_tts": User asks to create content. Formulate 'scriptToGeneratePrompt', define 'scriptSpeakers' (EXACTLY 2), 'scriptStyle'. Set 'multiSpeakerConfig' with EXACTLY 2 speakers.
 3. Voice Selection: Choose from available voices. Match user descriptions. Ensure valid.
 4. Speaker Names: For generated scripts, if names aren't in prompt, create logical names.
-5. Max 2 speakers for multi-speaker.
+5. CRITICAL: Multi-speaker TTS requires EXACTLY 2 speakers. Never create multiSpeakerConfig with only 1 speaker - use single_tts instead.
 Respond ONLY with the JSON object.
 `;
 
