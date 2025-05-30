@@ -1036,3 +1036,225 @@ Respond ONLY with the JSON array.`;
         message: `Conversation processed into ${segments.length} segments and combined into a single audio file.`
     };
 };
+
+// Session management endpoints
+app.get('/api/sessions', async (req, res) => {
+    try {
+        const sessionsDir = path.join(__dirname, 'sessions');
+        const sessionDirs = await fs.readdir(sessionsDir);
+        const sessions = [];
+
+        for (const sessionId of sessionDirs) {
+            const sessionPath = path.join(sessionsDir, sessionId);
+            const stat = await fs.stat(sessionPath);
+            
+            if (stat.isDirectory()) {
+                const indexPath = path.join(sessionPath, 'index.json');
+                let sessionInfo;
+                
+                try {
+                    // Try to read existing index.json
+                    const indexContent = await fs.readFile(indexPath, 'utf8');
+                    sessionInfo = JSON.parse(indexContent);
+                } catch (error) {
+                    // If index.json doesn't exist, create it from available data
+                    sessionInfo = await createSessionIndex(sessionId, sessionPath);
+                }
+                
+                sessions.push({
+                    id: sessionId,
+                    ...sessionInfo
+                });
+            }
+        }
+
+        // Sort by modified date (most recent first)
+        sessions.sort((a, b) => new Date(b.modified) - new Date(a.modified));
+        res.json(sessions);
+    } catch (error) {
+        console.error('Error listing sessions:', error);
+        res.status(500).json({ error: 'Failed to list sessions' });
+    }
+});
+
+app.get('/api/sessions/:sessionId', async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const sessionPath = path.join(__dirname, 'sessions', sessionId);
+        
+        // Check if session exists
+        try {
+            await fs.access(sessionPath);
+        } catch (error) {
+            return res.status(404).json({ error: 'Session not found' });
+        }
+
+        const indexPath = path.join(sessionPath, 'index.json');
+        let sessionInfo;
+        
+        try {
+            const indexContent = await fs.readFile(indexPath, 'utf8');
+            sessionInfo = JSON.parse(indexContent);
+        } catch (error) {
+            // Create index if it doesn't exist
+            sessionInfo = await createSessionIndex(sessionId, sessionPath);
+        }
+
+        // Get detailed session content
+        const sessionData = {
+            id: sessionId,
+            ...sessionInfo
+        };
+
+        // Add files information
+        const audioDir = path.join(sessionPath, 'audio');
+        const transcriptsDir = path.join(sessionPath, 'transcripts');
+        const promptsDir = path.join(sessionPath, 'prompts');
+
+        try {
+            sessionData.files = {
+                audio: await fs.readdir(audioDir).catch(() => []),
+                transcripts: await fs.readdir(transcriptsDir).catch(() => []),
+                prompts: await fs.readdir(promptsDir).catch(() => [])
+            };
+        } catch (error) {
+            sessionData.files = { audio: [], transcripts: [], prompts: [] };
+        }
+
+        res.json(sessionData);
+    } catch (error) {
+        console.error('Error getting session:', error);
+        res.status(500).json({ error: 'Failed to get session details' });
+    }
+});
+
+app.delete('/api/sessions/:sessionId', async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const sessionPath = path.join(__dirname, 'sessions', sessionId);
+        
+        // Check if session exists
+        try {
+            await fs.access(sessionPath);
+        } catch (error) {
+            return res.status(404).json({ error: 'Session not found' });
+        }
+
+        // Remove session from memory if it exists
+        if (sessions.has(sessionId)) {
+            sessions.delete(sessionId);
+        }
+
+        // Recursively delete the session directory
+        await fs.rm(sessionPath, { recursive: true, force: true });
+        
+        res.json({ 
+            success: true, 
+            message: `Session ${sessionId} deleted successfully` 
+        });
+    } catch (error) {
+        console.error('Error deleting session:', error);
+        res.status(500).json({ error: 'Failed to delete session' });
+    }
+});
+
+async function createSessionIndex(sessionId, sessionPath) {
+    try {
+        const promptsDir = path.join(sessionPath, 'prompts');
+        const transcriptsDir = path.join(sessionPath, 'transcripts');
+        
+        // Get creation time from directory stats
+        const dirStats = await fs.stat(sessionPath);
+        const created = dirStats.birthtime.toISOString();
+        
+        // Try to find the original user prompt to get session name
+        let name = 'Untitled Session';
+        let modified = created;
+        let taskType = 'unknown';
+        let speakers = [];
+        let style = '';
+
+        try {
+            const promptFiles = await fs.readdir(promptsDir);
+            const userPromptFile = promptFiles.find(f => f.includes('prompt_transcript_user'));
+            
+            if (userPromptFile) {
+                const promptPath = path.join(promptsDir, userPromptFile);
+                const promptContent = await fs.readFile(promptPath, 'utf8');
+                const promptData = JSON.parse(promptContent);
+                
+                // Extract session name from original prompt (first 50 chars)
+                if (promptData.originalUserPrompt) {
+                    name = promptData.originalUserPrompt.substring(0, 50).trim();
+                    if (promptData.originalUserPrompt.length > 50) {
+                        name += '...';
+                    }
+                }
+                
+                if (promptData.requestedSpeakers) {
+                    speakers = promptData.requestedSpeakers;
+                }
+                
+                if (promptData.requestedStyle) {
+                    style = promptData.requestedStyle;
+                }
+                
+                // Determine task type based on speakers
+                if (speakers.length === 1) {
+                    taskType = 'single_tts';
+                } else if (speakers.length === 2) {
+                    taskType = 'duo_tts';
+                } else if (speakers.length >= 3) {
+                    taskType = 'conversation_tts';
+                }
+                
+                if (promptData.timestamp) {
+                    modified = promptData.timestamp;
+                }
+            }
+        } catch (error) {
+            console.log(`Could not read prompt data for session ${sessionId}:`, error.message);
+        }
+
+        // Check for more recent files to update modified time
+        try {
+            const transcriptFiles = await fs.readdir(transcriptsDir);
+            for (const file of transcriptFiles) {
+                const filePath = path.join(transcriptsDir, file);
+                const fileStats = await fs.stat(filePath);
+                if (fileStats.mtime > new Date(modified)) {
+                    modified = fileStats.mtime.toISOString();
+                }
+            }
+        } catch (error) {
+            // Directory might not exist
+        }
+
+        const sessionInfo = {
+            created,
+            modified,
+            name,
+            taskType,
+            speakers,
+            style
+        };
+
+        // Save index.json
+        const indexPath = path.join(sessionPath, 'index.json');
+        await fs.writeFile(indexPath, JSON.stringify(sessionInfo, null, 2));
+        
+        return sessionInfo;
+    } catch (error) {
+        console.error(`Error creating session index for ${sessionId}:`, error);
+        // Return minimal info if we can't create proper index
+        const dirStats = await fs.stat(sessionPath);
+        return {
+            created: dirStats.birthtime.toISOString(),
+            modified: dirStats.mtime.toISOString(),
+            name: 'Session (index creation failed)',
+            taskType: 'unknown',
+            speakers: [],
+            style: ''
+        };
+    }
+}

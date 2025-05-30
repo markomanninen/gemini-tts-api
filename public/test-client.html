@@ -335,6 +335,172 @@
             border-left: 4px solid #17a2b8;
         }
 
+        /* Session browser modal styles */
+        .session-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .session-modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .session-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            margin-top: 16px;
+        }
+
+        .session-item {
+            padding: 16px;
+            border-bottom: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .session-item:hover {
+            background-color: #f7fafc;
+        }
+
+        .session-item:last-child {
+            border-bottom: none;
+        }
+
+        .session-item.selected {
+            background-color: #e6fffa;
+            border-left: 4px solid #38b2ac;
+        }
+
+        .session-item.active {
+            background-color: #f0fff4;
+            border-left: 4px solid #48bb78;
+        }
+
+        .session-main {
+            margin-bottom: 8px;
+        }
+
+        .session-title {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 4px;
+        }
+
+        .session-meta {
+            font-size: 0.875rem;
+            color: #718096;
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .session-type {
+            background: #edf2f7;
+            color: #4a5568;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .session-date {
+            color: #a0aec0;
+        }
+
+        .session-speakers {
+            font-size: 0.8rem;
+            color: #4299e1;
+            margin-top: 4px;
+        }
+
+        .session-badge {
+            display: inline-block;
+            background: #48bb78;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-top: 4px;
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 800px;
+            min-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #718096;
+            padding: 4px;
+        }
+
+        .modal-close:hover {
+            color: #2d3748;
+        }
+
+        .modal-actions {
+            margin-top: 20px;
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .btn-secondary {
+            background: #718096;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4a5568;
+        }
+
+        /* ...existing code... */
     </style>
 </head>
 <body>
@@ -361,10 +527,34 @@
                     </svg>
                     Check Server Status
                 </button>
+                <button class="btn" onclick="showLoadSessionModal()" id="loadSessionBtn" style="margin-left: 10px; background: #17a2b8;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-folder-open" viewBox="0 0 16 16">
+                        <path d="M1 3.5A1.5 1.5 0 0 1 2.5 2h2.764c.958 0 1.76.56 2.311 1.184C7.985 3.648 8.48 4 9 4h4.5A1.5 1.5 0 0 1 15 5.5v7a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 12.5v-9zM2.5 3a.5.5 0 0 0-.5.5V6h12v-.5a.5.5 0 0 0-.5-.5H9c-.964 0-1.71-.629-2.174-1.154C6.374 3.334 5.82 3 5.264 3H2.5zM14 7H2v5.5a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5V7z"/>
+                    </svg>
+                    Load Session
+                </button>
             </div>
             <div id="sessionInfo" class="session-info" style="display: none;">
-                <strong>Session ID:</strong> <span id="currentSessionId"></span><br>
-                <strong>Created:</strong> <span id="sessionCreated"></span>
+                <div style="display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: start; margin-bottom: 16px;">
+                    <div>
+                        <strong>Session ID:</strong> <span id="currentSessionId"></span><br>
+                        <strong>Created:</strong> <span id="sessionCreated"></span><br>
+                        <strong>Name:</strong> <span id="sessionName"></span><br>
+                        <strong>Task Type:</strong> <span id="sessionTaskType"></span><br>
+                        <span id="sessionSpeakers" style="display: none;"><strong>Speakers:</strong> <span id="sessionSpeakersList"></span><br></span>
+                        <span id="sessionStyle" style="display: none;"><strong>Style:</strong> <span id="sessionStyleValue"></span></span>
+                    </div>
+                    <div>
+                        <button class="btn" onclick="loadSessionFiles()" id="loadFilesBtn" style="font-size: 0.9em; padding: 8px 12px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16">
+                                <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                                <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                            </svg>
+                            Refresh Files
+                        </button>
+                    </div>
+                </div>
+                <div id="sessionFiles" style="margin-top: 15px;"></div>
             </div>
         </div>
 
@@ -514,18 +704,6 @@
                 </button>
             </form>
             <div id="multiResult"></div>
-        </div>
-
-        <div class="card">
-            <h2>Session Files</h2>
-            <button class="btn" onclick="loadSessionFiles()" id="loadFilesBtn">
-                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16">
-                    <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
-                    <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
-                </svg>
-                Load Session Files
-            </button>
-            <div id="sessionFiles" style="margin-top: 15px;"></div>
         </div>
 
         <div class="card">
@@ -777,6 +955,9 @@
                                 Use for Duo Speaker TTS
                             </button>
                         </div>`;
+                    
+                    // Refresh session files to show new files
+                    await refreshSessionFiles();
                 } else {
                     showResult(data.error || 'Failed to generate transcript', 'error-message', resultDivId);
                 }
@@ -828,6 +1009,9 @@
                                 <audio controls src="${API_BASE_URL}${data.audioUrl}">Your browser does not support audio.</audio>
                             </div>
                         </div>`;
+                    
+                    // Refresh session files to show new files
+                    await refreshSessionFiles();
                 } else {
                     showResult(data.error || 'Failed to generate audio', 'error-message', resultDivId);
                 }
@@ -884,6 +1068,9 @@
                                 <audio controls src="${API_BASE_URL}${data.audioUrl}">Your browser does not support audio.</audio>
                             </div>
                         </div>`;
+                    
+                    // Refresh session files to show new files
+                    await refreshSessionFiles();
                 } else {
                     showResult(data.error || 'Failed to generate duo speaker audio', 'error-message', resultDivId);
                 }
@@ -992,6 +1179,9 @@
                     
                     html += `</div>`;
                     document.getElementById(resultDivId).innerHTML = html;
+                    
+                    // Refresh session files to show new files
+                    await refreshSessionFiles();
                 } else {
                     showResult(data.error || 'Failed to generate conversation audio', 'error-message', resultDivId);
                 }
@@ -1046,6 +1236,9 @@
                     }
                     html += `</div>`;
                     document.getElementById(resultDivId).innerHTML = html;
+                    
+                    // Refresh session files to show new files
+                    await refreshSessionFiles();
                 } else {
                     showResult(`Error: ${data.error}` + (data.details ? `<br><pre>${escapeHtml(JSON.stringify(data.details, null, 2))}</pre>` : ''), 'error-message', resultDivId);
                 }
@@ -1077,25 +1270,28 @@
         }
 
 
-        async function loadSessionFiles() {
+        async function loadSessionFiles(showLoading = true) {
             if (!ensureSession()) return;
             const btn = document.getElementById('loadFilesBtn');
-            setLoading(btn, true, "Loading...");
             const filesDiv = document.getElementById('sessionFiles');
-            filesDiv.innerHTML = '';
+            
+            if (showLoading) {
+                setLoading(btn, true, "Loading...");
+                filesDiv.innerHTML = '';
+            }
 
             try {
                 const response = await fetch(`${API_BASE_URL}/api/session/${currentSessionId}/files`);
                 const data = await response.json();
                 if (data.success) {
-                    let html = '<h3>Session Files:</h3>';
+                    let html = '<h3 style="margin-bottom: 12px; color: #2d3748; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">Session Files</h3>';
                     let hasFiles = false;
                     ['audio', 'transcripts', 'prompts'].forEach(type => {
                         if (data.files[type] && data.files[type].length > 0) {
                             hasFiles = true;
-                            html += `<h4>${type.charAt(0).toUpperCase() + type.slice(1)}:</h4><ul>`;
+                            html += `<h4 style="margin: 16px 0 8px 0; color: #4a5568; font-size: 0.95em;">${type.charAt(0).toUpperCase() + type.slice(1)} (${data.files[type].length}):</h4><ul style="margin: 0 0 12px 0;">`;
                             data.files[type].forEach(file => {
-                                html += `<li>
+                                html += `<li style="margin-bottom: 6px;">
                                     <a href="${API_BASE_URL}${file.url}" target="_blank">${escapeHtml(file.name)}</a>
                                     <small>(${(file.size / 1024).toFixed(1)} KB, ${new Date(file.created).toLocaleString()})</small>
                                 </li>`;
@@ -1104,19 +1300,38 @@
                         }
                     });
                     if (!hasFiles) {
-                        html += '<p>No files generated in this session yet.</p>';
+                        html += '<p style="color: #718096; font-style: italic;">No files generated in this session yet.</p>';
                     }
                     filesDiv.innerHTML = html;
                 } else {
-                    showResult(data.error || 'Failed to load files', 'error-message', 'sessionFiles');
+                    if (showLoading) {
+                        showResult(data.error || 'Failed to load files', 'error-message', 'sessionFiles');
+                    }
                 }
             } catch (error) {
-                showResult('Error loading files: ' + error.message, 'error-message', 'sessionFiles');
+                if (showLoading) {
+                    showResult('Error loading files: ' + error.message, 'error-message', 'sessionFiles');
+                }
             } finally {
-                setLoading(btn, false);
+                if (showLoading) {
+                    setLoading(btn, false);
+                }
             }
         }
 
+        // --- Session Loading Functions ---
+        // (Functions are defined later in the file)
+
+        // Helper function to refresh session files after operations
+        async function refreshSessionFiles() {
+            if (currentSessionId && document.getElementById('sessionInfo').style.display !== 'none') {
+                try {
+                    await loadSessionFiles(false); // Don't show loading state
+                } catch (error) {
+                    console.log('Could not refresh session files:', error.message);
+                }
+            }
+        }
 
         // --- Utility Functions ---
         function ensureSession() {
@@ -1365,41 +1580,214 @@
                  .replace(/'/g, "&#039;");
         }
 
-        function addConversationSpeaker() {
-            const container = document.getElementById('conversationSpeakerConfigs');
-            const speakerConfig = document.createElement('div');
-            speakerConfig.className = 'speaker-config';
-            speakerConfig.innerHTML = `
-                <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; margin-bottom:10px; align-items: center;">
-                    <input type="text" placeholder="Speaker Name (e.g., Alice)" class="conversation-speaker-name">
-                    <select class="conversation-speaker-voice">
-                    </select>
-                    <button type="button" class="btn-small btn-remove" onclick="removeConversationSpeaker(this)">Remove</button>
-                </div>
-            `;
-            container.appendChild(speakerConfig);
+        // Session loading functionality
+        async function showLoadSessionModal() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/sessions`);
+                const sessions = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(sessions.error || 'Failed to load sessions');
+                }
 
-            // Repopulate voices for the new speaker
-            const voiceSelect = speakerConfig.querySelector('.conversation-speaker-voice');
-            availableVoices.forEach(voice => {
-                const option = new Option(voice, voice);
-                voiceSelect.add(option);
+                // Create modal
+                const modal = document.createElement('div');
+                modal.className = 'session-modal';
+                modal.id = 'sessionBrowserModal';
+                
+                modal.innerHTML = `
+                    <div class="session-modal-content">
+                        <div class="modal-header">
+                            <h3>Load Session</h3>
+                            <button class="modal-close" onclick="closeSessionModal()">&times;</button>
+                        </div>
+                        <p style="color: #718096; margin-bottom: 16px;">
+                            Select a session to load. Click on a session to select it, then click "Load Selected Session".
+                        </p>
+                        <div class="session-list" id="sessionList">
+                            ${sessions.length === 0 ? 
+                                '<div style="padding: 32px; text-align: center; color: #718096;">No sessions found</div>' :
+                                sessions.map(session => `
+                                    <div class="session-item" onclick="selectSession('${session.id}', this)" data-session-id="${session.id}">
+                                        <div class="session-name">${escapeHtml(session.name)}</div>
+                                        <div class="session-meta">
+                                            <span>📅 ${new Date(session.created).toLocaleDateString()}</span>
+                                            <span>🕒 ${new Date(session.modified).toLocaleString()}</span>
+                                            <span>🎯 ${escapeHtml(session.taskType)}</span>
+                                            ${session.style ? `<span>🎭 ${escapeHtml(session.style)}</span>` : ''}
+                                        </div>
+                                        ${session.speakers.length > 0 ? 
+                                            `<div class="session-speakers">👥 ${escapeHtml(session.speakers.join(', '))}</div>` : 
+                                            ''
+                                        }
+                                    </div>
+                                `).join('')
+                            }
+                        </div>
+                        <div class="modal-actions">
+                            <button class="btn btn-secondary" onclick="closeSessionModal()">Cancel</button>
+                            <button class="btn" onclick="removeSelectedSession()" id="removeSessionBtn" disabled 
+                                    style="background: linear-gradient(135deg, #dc3545 0%, #e74c3c 100%); margin-right: 10px;">
+                                Remove Session
+                            </button>
+                            <button class="btn" onclick="loadSelectedSession()" id="loadSelectedBtn" disabled>Load Selected Session</button>
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(modal);
+                
+                // Close on outside click
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        closeSessionModal();
+                    }
+                });
+
+            } catch (error) {
+                console.error('Error loading sessions:', error);
+                showResult(`Error loading sessions: ${error.message}`, 'error-message', null, true);
+            }
+        }
+
+        let selectedSessionId = null;
+
+        function selectSession(sessionId, element) {
+            // Remove previous selection
+            document.querySelectorAll('.session-item').forEach(item => {
+                item.classList.remove('selected');
             });
             
-            // Set a default voice (rotate through available voices)
-            const existingSpeakers = document.querySelectorAll('.conversation-speaker-voice').length - 1;
-            if (availableVoices.length > 0) {
-                voiceSelect.value = availableVoices[existingSpeakers % availableVoices.length];
+            // Select current item
+            element.classList.add('selected');
+            selectedSessionId = sessionId;
+            
+            // Enable both load and remove buttons
+            const loadBtn = document.getElementById('loadSelectedBtn');
+            const removeBtn = document.getElementById('removeSessionBtn');
+            
+            if (loadBtn) loadBtn.disabled = false;
+            if (removeBtn) removeBtn.disabled = false;
+        }
+
+        function closeSessionModal() {
+            const modal = document.getElementById('sessionBrowserModal');
+            if (modal) {
+                modal.remove();
+            }
+            selectedSessionId = null;
+        }
+
+        async function loadSelectedSession() {
+            if (!selectedSessionId) {
+                showResult('Please select a session to load.', 'error-message', null, true);
+                return;
+            }
+
+            const btn = document.getElementById('loadSelectedBtn');
+            setLoading(btn, true, "Loading...");
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/sessions/${selectedSessionId}`);
+                const sessionData = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(sessionData.error || 'Failed to load session');
+                }
+
+                // Set current session
+                currentSessionId = selectedSessionId;
+                updateSessionInfo(sessionData);
+                
+                // Close modal
+                closeSessionModal();
+                
+                showResult(`Session "${sessionData.name}" loaded successfully!`, 'result', null, true);
+
+            } catch (error) {
+                console.error('Error loading session:', error);
+                showResult(`Error loading session: ${error.message}`, 'error-message', null, true);
+            } finally {
+                setLoading(btn, false);
             }
         }
 
-        function removeConversationSpeaker(button) {
-            const speakerConfig = button.closest('.speaker-config');
-            if (speakerConfig) {
-                speakerConfig.remove();
+        async function updateSessionInfo(sessionData) {
+            // Update session display
+            document.getElementById('currentSessionId').textContent = sessionData.id;
+            document.getElementById('sessionCreated').textContent = new Date(sessionData.created).toLocaleString();
+            document.getElementById('sessionName').textContent = sessionData.name || 'Untitled Session';
+            document.getElementById('sessionTaskType').textContent = sessionData.taskType || 'unknown';
+            
+            // Show/hide speakers section
+            if (sessionData.speakers && sessionData.speakers.length > 0) {
+                document.getElementById('sessionSpeakers').style.display = 'inline';
+                document.getElementById('sessionSpeakersList').textContent = sessionData.speakers.join(', ');
+            } else {
+                document.getElementById('sessionSpeakers').style.display = 'none';
+            }
+            
+            // Show/hide style section
+            if (sessionData.style) {
+                document.getElementById('sessionStyle').style.display = 'inline';
+                document.getElementById('sessionStyleValue').textContent = sessionData.style;
+            } else {
+                document.getElementById('sessionStyle').style.display = 'none';
+            }
+            
+            document.getElementById('sessionInfo').style.display = 'block';
+            
+            // Automatically load session files
+            await loadSessionFiles();
+        }
+
+        async function removeSelectedSession() {
+            if (!selectedSessionId) {
+                showResult('Please select a session to remove.', 'error-message', null, true);
+                return;
+            }
+
+            // Confirm deletion
+            if (!confirm('Are you sure you want to permanently delete this session? This action cannot be undone.')) {
+                return;
+            }
+
+            const btn = document.getElementById('removeSessionBtn');
+            setLoading(btn, true, "Removing...");
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/sessions/${selectedSessionId}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // If we're removing the current session, clear it
+                    if (selectedSessionId === currentSessionId) {
+                        currentSessionId = null;
+                        document.getElementById('sessionInfo').style.display = 'none';
+                    }
+                    
+                    // Refresh the session list by closing and reopening the modal
+                    closeSessionModal();
+                    await showLoadSessionModal();
+                    
+                    showResult('Session removed successfully!', 'success-message', null, true);
+                } else {
+                    throw new Error(data.error || 'Failed to remove session');
+                }
+            } catch (error) {
+                console.error('Error removing session:', error);
+                showResult('Error removing session: ' + error.message, 'error-message', null, true);
+            } finally {
+                setLoading(btn, false);
             }
         }
 
+        // ...existing code...
     </script>
+
 </body>
 </html>
