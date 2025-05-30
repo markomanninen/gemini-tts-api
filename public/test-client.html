@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini TTS API Test Client</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            padding-bottom: 40px; /* Ensure space for content at the bottom */
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            padding-top: 20px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 0.2em;
+        }
+
+        .header p {
+            font-size: 1.1em;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.9); /* Slightly transparent white */
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            backdrop-filter: blur(8px); /* Frosted glass effect */
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #4a5568; /* Darker gray for labels */
+        }
+
+        input[type="text"],
+        input[type="url"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #cbd5e0; /* Lighter border */
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+            background-color: #f7fafc; /* Very light gray background */
+        }
+
+        input[type="text"]:focus,
+        input[type="url"]:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea; /* Purple border on focus */
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2); /* Soft glow on focus */
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        /* Template dropdown specific styling */
+        #promptTemplate {
+            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+            border: 2px solid #e2e8f0;
+            font-weight: 500;
+        }
+
+        #promptTemplate:hover {
+            border-color: #cbd5e0;
+        }
+
+        #promptTemplate optgroup {
+            background: #f7fafc;
+            color: #2d3748;
+            font-weight: bold;
+            font-style: normal;
+            padding: 8px 0px 4px 8px;
+        }
+
+        #promptTemplate option {
+            background: white;
+            color: #4a5568;
+            padding: 8px 12px;
+        }
+
+        #promptTemplate option:hover {
+            background: #edf2f7;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #5a67d8 0%, #7f5af0 100%); /* Adjusted gradient */
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: inline-flex; /* For aligning icon and text */
+            align-items: center;
+            gap: 8px; /* Space between icon and text */
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        }
+
+        .btn:active {
+            transform: translateY(0px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .session-info {
+            background: #edf2f7; /* Lighter gray */
+            border-left: 5px solid #667eea; /* Purple accent */
+            padding: 18px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.95em;
+        }
+
+        .result, .error-message { /* Combined for consistency, renamed .error to .error-message */
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            font-size: 0.95em;
+            word-wrap: break-word; /* Prevent overflow */
+        }
+
+        .result {
+            background: #e6fffa; /* Light teal */
+            border: 1px solid #38b2ac; /* Teal border */
+            color: #234e52; /* Dark teal text */
+        }
+
+        .error-message {
+            background: #fff5f5; /* Light red */
+            border: 1px solid #f56565; /* Red border */
+            color: #c53030; /* Dark red text */
+        }
+
+        .audio-controls {
+            margin-top: 15px;
+        }
+
+        audio {
+            width: 100%;
+            margin-top: 10px;
+            border-radius: 6px;
+        }
+
+        .speaker-config {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: #f8fafc; /* Slightly off-white */
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); /* Responsive grid */
+            gap: 25px;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 18px; /* Slightly smaller */
+            height: 18px;
+            border: 3px solid rgba(255, 255, 255, 0.3); /* Lighter border for dark button */
+            border-top-color: #ffffff; /* White top border */
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px; /* Space from text */
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        h2 {
+            font-size: 1.5em;
+            color: #2d3748; /* Darker heading color */
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e2e8f0; /* Subtle underline */
+            padding-bottom: 10px;
+        }
+        pre {
+            background-color: #f7fafc;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            white-space: pre-wrap; /* Allow wrapping */
+            word-break: break-all; /* Break long words */
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 0.9em;
+        }
+        #sessionFiles ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        #sessionFiles li {
+            background-color: #f8fafc;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        #sessionFiles li a {
+            color: #4299e1;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        #sessionFiles li a:hover {
+            text-decoration: underline;
+        }
+        #sessionFiles li small {
+            display: block;
+            color: #718096;
+            font-size: 0.85em;
+            margin-top: 4px;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🎤 Gemini TTS API Test Client</h1>
+            <p>Generate transcripts and audio with session management and AI-driven orchestration</p>
+        </header>
+
+        <div class="card">
+            <h2>Session Management</h2>
+            <div class="form-group">
+                <button class="btn" onclick="createSession()" id="createSessionBtn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-plus-circle" viewBox="0 0 16 16">
+                        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                    </svg>
+                    Create New Session
+                </button>
+                <button class="btn" onclick="checkHealth()" id="healthBtn" style="margin-left: 10px; background: #4a5568;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-heart-pulse" viewBox="0 0 16 16">
+                        <path d="m8 2.748-.717-.737C5.6.281 2.514.878 1.4 3.053.918 3.995.78 5.323 1.508 7H.43c-2.128-5.697 4.165-8.83 7.394-3.185C10.09-1.778 16.37 1.32 14.27 7h-1.078c.728-1.677.59-3.005.108-3.947C12.486.878 9.4.28 7.717 2.01L8 2.748ZM2.212 10h1.315C4.593 11.183 6.05 12.458 8 13.795c1.949-1.337 3.407-2.612 4.473-3.795h1.315c-1.265 1.566-3.14 3.25-5.788 5-2.648-1.75-4.523-3.434-5.788-5Z"/>
+                        <path d="M10.464 3.314a.5.5 0 0 0-.945.049L7.921 8.956 6.464 5.314a.5.5 0 0 0-.88-.091L3.732 8H.5a.5.5 0 0 0 0 1H4a.5.5 0 0 0 .416-.223l1.473-2.209 1.647 4.118a.5.5 0 0 0 .945-.049l1.598-5.593 1.457 3.642A.5.5 0 0 0 12 9h3.5a.5.5 0 0 0 0-1h-3.162l-1.874-4.686Z"/>
+                    </svg>
+                    Check Server Status
+                </button>
+            </div>
+            <div id="sessionInfo" class="session-info" style="display: none;">
+                <strong>Session ID:</strong> <span id="currentSessionId"></span><br>
+                <strong>Created:</strong> <span id="sessionCreated"></span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>✨ AI-Driven Generation</h2>
+            <form id="aiDrivenForm" onsubmit="handleAiDrivenGeneration(event)">
+                <div class="form-group">
+                    <label for="promptTemplate">Template Prompts:</label>
+                    <select id="promptTemplate" onchange="applyPromptTemplate()" style="margin-bottom: 10px;">
+                        <option value="">Select a template or write your own...</option>
+                        <optgroup label="🎤 Single Speaker">
+                            <option value="podcast-intro">Podcast Introduction</option>
+                            <option value="welcome-message">Welcome Message</option>
+                            <option value="news-report">News Report</option>
+                            <option value="educational-content">Educational Content</option>
+                            <option value="commercial-ad">Commercial Advertisement</option>
+                        </optgroup>
+                        <optgroup label="👥 Two Speakers (Dual)">
+                            <option value="podcast-hosts">Podcast Co-hosts</option>
+                            <option value="interview">Interview Style</option>
+                            <option value="business-meeting">Business Meeting</option>
+                            <option value="debate">Debate/Discussion</option>
+                            <option value="teacher-student">Teacher & Student</option>
+                            <option value="customer-support">Customer Support Call</option>
+                        </optgroup>
+                        <optgroup label="🎭 Multiple Speakers (3+)">
+                            <option value="panel-discussion">Panel Discussion</option>
+                            <option value="family-conversation">Family Conversation</option>
+                            <option value="team-meeting">Team Meeting</option>
+                            <option value="radio-show">Radio Show</option>
+                            <option value="story-narration">Story with Characters</option>
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="userPrompt">Your Request:</label>
+                    <textarea id="userPrompt" placeholder="Use the template dropdown above for ready-made prompts, or write your own custom request. Examples: 'Create a short podcast intro about renewable energy, with an upbeat female voice.' OR 'John: Hello World. Jane: Hi John, make John sound firm and Jane sound cheerful.'"></textarea>
+                </div>
+                <button type="submit" class="btn" id="aiDrivenBtn">
+                    Let AI Handle It!
+                </button>
+            </form>
+            <div id="aiDrivenResult"></div>
+        </div>
+
+
+        <div class="grid">
+            <div class="card">
+                <h2>Generate Transcript</h2>
+                <form onsubmit="generateTranscript(event)">
+                    <div class="form-group">
+                        <label for="transcriptPrompt">Prompt:</label>
+                        <textarea id="transcriptPrompt" placeholder="Generate a conversation about..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="speakers">Speakers (comma-separated, optional):</label>
+                        <input type="text" id="speakers" placeholder="Dr. Smith, Sarah">
+                    </div>
+                    <div class="form-group">
+                        <label for="style">Style (optional):</label>
+                        <select id="style">
+                            <option value="podcast">Podcast</option>
+                            <option value="interview">Interview</option>
+                            <option value="conversation" selected>Conversation</option>
+                            <option value="debate">Debate</option>
+                            <option value="educational">Educational</option>
+                            <option value="story">Story Narration</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn" id="transcriptBtn">
+                        Generate Transcript
+                    </button>
+                </form>
+                <div id="transcriptResult"></div>
+            </div>
+
+            <div class="card">
+                <h2>Single Speaker TTS</h2>
+                <form onsubmit="generateSingleTTS(event)">
+                    <div class="form-group">
+                        <label for="singleText">Text:</label>
+                        <textarea id="singleText" placeholder="Enter text to convert to speech..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="singleVoice">Voice:</label>
+                        <select id="singleVoice">
+                            </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="singleStyle">Style (optional, e.g., "Say cheerfully", "Whisper"):</label>
+                        <input type="text" id="singleStyle" placeholder="Say cheerfully">
+                    </div>
+                    <button type="submit" class="btn" id="singleBtn">
+                        Generate Audio
+                    </button>
+                </form>
+                <div id="singleResult"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Multi-Speaker TTS</h2>
+            <form onsubmit="generateMultiTTS(event)">
+                <div class="form-group">
+                    <label for="multiText">Text (with speaker names, e.g., Joe: Hi. Jane: Hello.):</label>
+                    <textarea id="multiText" placeholder="Joe: How's it going today Jane? Jane: Not too bad, how about you?"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Speaker Configuration (Max 2):</label>
+                    <div id="speakerConfigs">
+                        </div>
+                    <button type="button" class="btn" onclick="addSpeakerConfig()" style="margin-top: 10px; background: #4a5568;">Add Speaker</button>
+                </div>
+
+                <button type="submit" class="btn" id="multiBtn">
+                    Generate Multi-Speaker Audio
+                </button>
+            </form>
+            <div id="multiResult"></div>
+        </div>
+
+        <div class="card">
+            <h2>Session Files</h2>
+            <button class="btn" onclick="loadSessionFiles()" id="loadFilesBtn">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                    <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                </svg>
+                Load Session Files
+            </button>
+            <div id="sessionFiles" style="margin-top: 15px;"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentSessionId = null;
+        let availableVoices = [];
+        const API_BASE_URL = ''; // Assuming API is on the same origin, or specify e.g., http://localhost:3000
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchAvailableVoices();
+            addSpeakerConfig(); // Add one speaker config by default
+            addSpeakerConfig(); // Add second speaker config by default
+
+            // Set default values for some fields
+            document.getElementById('transcriptPrompt').value = 'Generate a short, friendly conversation between two colleagues, Alex and Ben, discussing their weekend plans.';
+            document.getElementById('speakers').value = 'Alex, Ben';
+            document.getElementById('singleText').value = 'Welcome to this demonstration of advanced text-to-speech technology. I hope you find it impressive.';
+            document.getElementById('multiText').value = 'Alex: Hey Ben, any exciting plans for the weekend? Ben: Not yet, Alex! I was thinking of maybe going for a hike. You?';
+            document.getElementById('userPrompt').value = "Try the template menu above for ready-made prompts, or create your own! Example: Create a short, upbeat welcome message for a podcast named 'Tech Talks', spoken by a friendly female voice like Zephyr.";
+
+        });
+
+        async function fetchAvailableVoices() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/voices`);
+                const data = await response.json();
+                if (data.success && data.voices) {
+                    availableVoices = data.voices;
+                    populateVoiceSelects(availableVoices);
+                } else {
+                    showResult('Could not load voices: ' + (data.error || 'Unknown error'), 'error-message');
+                }
+            } catch (error) {
+                showResult('Error fetching voices: ' + error.message, 'error-message');
+            }
+        }
+
+        function populateVoiceSelects(voices) {
+            const singleVoiceSelect = document.getElementById('singleVoice');
+            singleVoiceSelect.innerHTML = ''; // Clear existing
+            voices.forEach(voice => {
+                const option = new Option(voice, voice);
+                singleVoiceSelect.add(option);
+            });
+            // Also populate for multi-speaker configs
+            document.querySelectorAll('.speaker-voice').forEach(select => {
+                select.innerHTML = '';
+                 voices.forEach(voice => {
+                    const option = new Option(voice, voice);
+                    select.add(option);
+                });
+            });
+            if (voices.length > 0) {
+                singleVoiceSelect.value = voices.includes('Kore') ? 'Kore' : voices[0]; // Default
+                const multiVoiceSelects = document.querySelectorAll('.speaker-voice');
+                if (multiVoiceSelects[0]) multiVoiceSelects[0].value = voices.includes('Kore') ? 'Kore' : voices[0];
+                if (multiVoiceSelects[1]) multiVoiceSelects[1].value = voices.includes('Puck') ? 'Puck' : voices[0];
+
+                // Set default speaker names for multi-speaker
+                const speakerNameInputs = document.querySelectorAll('.speaker-name');
+                if(speakerNameInputs[0]) speakerNameInputs[0].value = "Alex";
+                if(speakerNameInputs[1]) speakerNameInputs[1].value = "Ben";
+            }
+        }
+
+
+        function addSpeakerConfig() {
+            const container = document.getElementById('speakerConfigs');
+            if (container.children.length >= 2) { // Max 2 speakers
+                showResult('Multi-speaker TTS requires exactly 2 speakers. Two speaker configurations are already present.', 'error-message', 'multiResult');
+                return;
+            }
+
+            const div = document.createElement('div');
+            div.className = 'speaker-config';
+            div.innerHTML = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom:10px;">
+                    <input type="text" placeholder="Speaker Name (e.g., Joe)" class="speaker-name">
+                    <select class="speaker-voice">
+                        ${availableVoices.map(v => `<option value="${v}">${v}</option>`).join('')}
+                    </select>
+                </div>
+                <button type="button" class="btn" onclick="removeSpeakerConfig(this)" style="background: #e53e3e; font-size:0.8em; padding: 6px 10px;">Remove</button>
+            `;
+            container.appendChild(div);
+        }
+
+        function removeSpeakerConfig(button) {
+            const container = document.getElementById('speakerConfigs');
+            if (container.children.length <= 2) {
+                showResult('Multi-speaker TTS requires exactly 2 speakers. Cannot remove speaker configuration.', 'error-message', 'multiResult');
+                return;
+            }
+            button.closest('.speaker-config').remove();
+        }
+
+
+        // --- API Call Functions ---
+        async function createSession() {
+            const btn = document.getElementById('createSessionBtn');
+            setLoading(btn, true, "Creating...");
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/session`, { method: 'POST' });
+                const data = await response.json();
+
+                if (data.success) {
+                    currentSessionId = data.sessionId;
+                    document.getElementById('currentSessionId').textContent = data.sessionId;
+                    document.getElementById('sessionCreated').textContent = new Date().toLocaleString();
+                    document.getElementById('sessionInfo').style.display = 'block';
+                    showResult('Session created successfully! ID: ' + data.sessionId, 'success', 'sessionInfo', true);
+                    document.getElementById('sessionFiles').innerHTML = ''; // Clear previous files
+                } else {
+                    showResult(data.error || 'Failed to create session', 'error-message', 'sessionInfo', true);
+                }
+            } catch (error) {
+                showResult('Error creating session: ' + error.message, 'error-message', 'sessionInfo', true);
+            } finally {
+                setLoading(btn, false);
+            }
+        }
+
+        async function checkHealth() {
+            const btn = document.getElementById('healthBtn');
+            
+            // Remove any existing modal
+            const existingModal = document.getElementById('statusModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+            
+            setLoading(btn, true, "Checking...");
+            try {
+                const response = await fetch(`${API_BASE_URL}/health`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    showStatusModal(btn, {
+                        title: 'Server Status',
+                        status: data.message,
+                        sessions: data.sessions,
+                        geminiService: data.geminiService,
+                        models: data.modelsInUse,
+                        isSuccess: true
+                    });
+                } else {
+                    showStatusModal(btn, {
+                        title: 'Server Status',
+                        error: data.error || 'Unknown error',
+                        isSuccess: false
+                    });
+                }
+            } catch (error) {
+                showStatusModal(btn, {
+                    title: 'Server Status',
+                    error: error.message,
+                    isSuccess: false
+                });
+            } finally {
+                setLoading(btn, false);
+            }
+        }
+
+        async function generateTranscript(event) {
+            event.preventDefault();
+            if (!ensureSession()) return;
+
+            const btn = document.getElementById('transcriptBtn');
+            setLoading(btn, true, "Generating...");
+            const resultDivId = 'transcriptResult';
+            document.getElementById(resultDivId).innerHTML = '';
+
+            try {
+                const speakers = document.getElementById('speakers').value
+                    .split(',')
+                    .map(s => s.trim())
+                    .filter(s => s);
+
+                const response = await fetch(`${API_BASE_URL}/api/generate-transcript`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sessionId: currentSessionId,
+                        prompt: document.getElementById('transcriptPrompt').value,
+                        speakers: speakers,
+                        style: document.getElementById('style').value
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: 'Network error occurred' }));
+                    throw new Error(errorData.error || `Server error: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                if (data.success) {
+                    // Store transcript in a global variable to avoid escaping issues
+                    window.lastGeneratedTranscript = data.transcript;
+                    document.getElementById(resultDivId).innerHTML = `
+                        <div class="result">
+                            <h4>Generated Transcript:</h4>
+                            <pre>${escapeHtml(data.transcript)}</pre>
+                            <button class="btn" style="margin-top:10px;" onclick="useTranscriptForMultiTTS()">
+                                Use for Multi-Speaker TTS
+                            </button>
+                        </div>`;
+                } else {
+                    showResult(data.error || 'Failed to generate transcript', 'error-message', resultDivId);
+                }
+            } catch (error) {
+                console.error('Transcript generation error:', error);
+                let errorMessage = 'Error generating transcript: ' + error.message;
+                
+                // Provide more specific error messages for common issues
+                if (error.message.includes('Failed to fetch') || error.message.includes('Network error')) {
+                    errorMessage = 'Network error: Unable to connect to the server. Please check your internet connection and try again.';
+                } else if (error.message.includes('Load failed')) {
+                    errorMessage = 'Connection failed: The server request was interrupted. This may be due to network issues or server problems.';
+                }
+                
+                showResult(errorMessage, 'error-message', resultDivId);
+            } finally {
+                setLoading(btn, false);
+            }
+        }
+
+        async function generateSingleTTS(event) {
+            event.preventDefault();
+            if (!ensureSession()) return;
+
+            const btn = document.getElementById('singleBtn');
+            setLoading(btn, true, "Generating...");
+            const resultDivId = 'singleResult';
+            document.getElementById(resultDivId).innerHTML = '';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/tts/single`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sessionId: currentSessionId,
+                        text: document.getElementById('singleText').value,
+                        voice: document.getElementById('singleVoice').value,
+                        style: document.getElementById('singleStyle').value
+                    })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById(resultDivId).innerHTML = `
+                        <div class="result">
+                            <h4>Audio Generated!</h4>
+                            <p><strong>Voice:</strong> ${escapeHtml(data.voice)}</p>
+                            <p><strong>File:</strong> ${escapeHtml(data.audioFile)}</p>
+                            <div class="audio-controls">
+                                <audio controls src="${API_BASE_URL}${data.audioUrl}">Your browser does not support audio.</audio>
+                            </div>
+                        </div>`;
+                } else {
+                    showResult(data.error || 'Failed to generate audio', 'error-message', resultDivId);
+                }
+            } catch (error) {
+                showResult('Error generating audio: ' + error.message, 'error-message', resultDivId);
+            } finally {
+                setLoading(btn, false);
+            }
+        }
+
+        async function generateMultiTTS(event) {
+            event.preventDefault();
+            if (!ensureSession()) return;
+
+            const btn = document.getElementById('multiBtn');
+            setLoading(btn, true, "Generating...");
+            const resultDivId = 'multiResult';
+            document.getElementById(resultDivId).innerHTML = '';
+
+            try {
+                const speakerNameInputs = document.querySelectorAll('#speakerConfigs .speaker-name');
+                const speakerVoiceSelects = document.querySelectorAll('#speakerConfigs .speaker-voice');
+                const speakersData = [];
+                for (let i = 0; i < speakerNameInputs.length; i++) {
+                    const name = speakerNameInputs[i].value.trim();
+                    const voice = speakerVoiceSelects[i].value;
+                    if (name && voice) {
+                        speakersData.push({ name, voice });
+                    }
+                }
+
+                if (speakersData.length === 0) {
+                    showResult('Please configure at least one speaker with a name and voice.', 'error-message', resultDivId);
+                    setLoading(btn, false);
+                    return;
+                }
+                if (speakersData.length !== 2) {
+                    showResult('Exactly 2 speakers required for multi-speaker TTS.', 'error-message', resultDivId);
+                    setLoading(btn, false);
+                    return;
+                }
+
+
+                const response = await fetch(`${API_BASE_URL}/api/tts/multi`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sessionId: currentSessionId,
+                        text: document.getElementById('multiText').value,
+                        speakers: speakersData
+                    })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    const speakerList = data.speakers.map(s => `${escapeHtml(s.name)} (${escapeHtml(s.voice)})`).join(', ');
+                    document.getElementById(resultDivId).innerHTML = `
+                        <div class="result">
+                            <h4>Multi-Speaker Audio Generated!</h4>
+                            <p><strong>Speakers:</strong> ${speakerList}</p>
+                            <p><strong>File:</strong> ${escapeHtml(data.audioFile)}</p>
+                            <div class="audio-controls">
+                                <audio controls src="${API_BASE_URL}${data.audioUrl}">Your browser does not support audio.</audio>
+                            </div>
+                        </div>`;
+                } else {
+                    showResult(data.error || 'Failed to generate multi-speaker audio', 'error-message', resultDivId);
+                }
+            } catch (error) {
+                showResult('Error generating multi-speaker audio: ' + error.message, 'error-message', resultDivId);
+            } finally {
+                setLoading(btn, false);
+            }
+        }
+
+        async function handleAiDrivenGeneration(event) {
+            event.preventDefault();
+            if (!ensureSession()) return;
+
+            const btn = document.getElementById('aiDrivenBtn');
+            setLoading(btn, true, "AI Orchestrating...");
+            const resultDivId = 'aiDrivenResult';
+            document.getElementById(resultDivId).innerHTML = '';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/ai-driven-generation`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sessionId: currentSessionId,
+                        userPrompt: document.getElementById('userPrompt').value
+                    })
+                });
+                const data = await response.json();
+                let html = '';
+                if (data.success) {
+                    html += `<div class="result"><h4>AI Orchestration Successful!</h4>`;
+                    if (data.aiPlan) {
+                        html += `<h5>AI's Plan:</h5><pre>${escapeHtml(JSON.stringify(data.aiPlan, null, 2))}</pre>`;
+                    }
+                    if (data.generatedScript) {
+                        html += `<h5>Generated Script:</h5><pre>${escapeHtml(data.generatedScript)}</pre>`;
+                    }
+                    if (data.audioUrl) {
+                        html += `
+                            <p style="margin-top:10px;"><strong>File:</strong> ${escapeHtml(data.audioFile)}</p>
+                            <div class="audio-controls">
+                                <audio controls src="${API_BASE_URL}${data.audioUrl}">Your browser does not support audio.</audio>
+                            </div>`;
+                    }
+                    html += `</div>`;
+                    document.getElementById(resultDivId).innerHTML = html;
+                } else {
+                    showResult(`Error: ${data.error}` + (data.details ? `<br><pre>${escapeHtml(JSON.stringify(data.details, null, 2))}</pre>` : ''), 'error-message', resultDivId);
+                }
+            } catch (error) {
+                showResult('Client-side error: ' + error.message, 'error-message', resultDivId);
+            } finally {
+                setLoading(btn, false);
+            }
+        }
+
+
+        async function loadSessionFiles() {
+            if (!ensureSession()) return;
+            const btn = document.getElementById('loadFilesBtn');
+            setLoading(btn, true, "Loading...");
+            const filesDiv = document.getElementById('sessionFiles');
+            filesDiv.innerHTML = '';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/session/${currentSessionId}/files`);
+                const data = await response.json();
+                if (data.success) {
+                    let html = '<h3>Session Files:</h3>';
+                    let hasFiles = false;
+                    ['audio', 'transcripts', 'prompts'].forEach(type => {
+                        if (data.files[type] && data.files[type].length > 0) {
+                            hasFiles = true;
+                            html += `<h4>${type.charAt(0).toUpperCase() + type.slice(1)}:</h4><ul>`;
+                            data.files[type].forEach(file => {
+                                html += `<li>
+                                    <a href="${API_BASE_URL}${file.url}" target="_blank">${escapeHtml(file.name)}</a>
+                                    <small>(${(file.size / 1024).toFixed(1)} KB, ${new Date(file.created).toLocaleString()})</small>
+                                </li>`;
+                            });
+                            html += '</ul>';
+                        }
+                    });
+                    if (!hasFiles) {
+                        html += '<p>No files generated in this session yet.</p>';
+                    }
+                    filesDiv.innerHTML = html;
+                } else {
+                    showResult(data.error || 'Failed to load files', 'error-message', 'sessionFiles');
+                }
+            } catch (error) {
+                showResult('Error loading files: ' + error.message, 'error-message', 'sessionFiles');
+            } finally {
+                setLoading(btn, false);
+            }
+        }
+
+
+        // --- Utility Functions ---
+        function ensureSession() {
+            if (!currentSessionId) {
+                showResult('Please create or select a session first.', 'error-message', null, true); // Show as toast
+                return false;
+            }
+            return true;
+        }
+
+        function useTranscriptForMultiTTS() {
+            const transcript = window.lastGeneratedTranscript;
+            if (!transcript) {
+                showResult('No transcript available. Please generate a transcript first.', 'error-message', null, true);
+                return;
+            }
+            document.getElementById('multiText').value = transcript;
+            // Optionally, scroll to the multi-speaker section
+            document.getElementById('multiText').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            showResult('Transcript copied to Multi-Speaker TTS text area.', 'success', null, true);
+        }
+
+        function applyPromptTemplate() {
+            const templateSelect = document.getElementById('promptTemplate');
+            const userPromptTextarea = document.getElementById('userPrompt');
+            const selectedTemplate = templateSelect.value;
+
+            if (!selectedTemplate) return;
+
+            const templates = {
+                // Single Speaker Templates
+                'podcast-intro': "Create an engaging 30-second introduction for a tech podcast called 'Future Insights' using a professional, warm female voice like Zephyr.",
+                
+                'welcome-message': "Generate a friendly welcome message for a new mobile app called 'TaskMaster Pro' using an enthusiastic voice like Kore.",
+                
+                'news-report': "Create a serious news report about renewable energy developments using a clear, authoritative voice like Orus.",
+                
+                'educational-content': "Produce an educational explanation about photosynthesis for middle school students using a patient, clear voice like Aoede.",
+                
+                'commercial-ad': "Create a 15-second commercial for a local coffee shop called 'Sunrise Café' using an upbeat, friendly voice like Puck.",
+
+                // Two Speaker Templates (Dual)
+                'podcast-hosts': "Create a 1-minute dialogue between two podcast co-hosts, Sarah (enthusiastic, voice Zephyr) and Mike (analytical, voice Orus), discussing the latest AI developments in healthcare.",
+                
+                'interview': "Generate an interview between journalist Emma (professional, voice Aoede) and tech CEO David (confident, voice Kore) about startup innovations.",
+                
+                'business-meeting': "Create a brief business meeting conversation between project manager Lisa (organized, voice Leda) and developer Tom (technical, voice Fenrir) discussing project deadlines.",
+                
+                'debate': "Produce a short debate between two political commentators, Alex (passionate, voice Charon) and Jordan (measured, voice Callirrhoe), about education policy.",
+                
+                'teacher-student': "Generate a dialogue between Professor Smith (wise, voice Orus) and student Amy (curious, voice Autonoe) about quantum physics concepts.",
+                
+                'customer-support': "Create a customer support call between representative Kelly (helpful, voice Zephyr) and customer John (frustrated, voice Kore) about a billing issue.",
+
+                // Multiple Speaker Templates (3+)
+                'panel-discussion': "Create a panel discussion with three experts: Dr. Chen (voice Aoede), Prof. Williams (voice Orus), and researcher Maria (voice Leda) discussing climate change solutions.",
+                
+                'family-conversation': "Generate a family dinner conversation with Dad (voice Kore), Mom (voice Zephyr), teenage daughter Sophie (voice Puck), and young son Max (voice Fenrir) planning vacation.",
+                
+                'team-meeting': "Produce a team standup meeting with project lead Alice (voice Leda), developer Bob (voice Orus), designer Carol (voice Aoede), and tester Dan (voice Charon).",
+                
+                'radio-show': "Create a morning radio show with host Jamie (voice Zephyr), co-host Alex (voice Kore), weather reporter Sam (voice Puck), and traffic reporter Riley (voice Orus).",
+                
+                'story-narration': "Generate a short fairy tale with narrator (voice Aoede), princess Luna (voice Leda), brave knight Sir Marcus (voice Orus), and wise wizard Gandolf (voice Charon)."
+            };
+
+            if (templates[selectedTemplate]) {
+                userPromptTextarea.value = templates[selectedTemplate];
+                // Reset the dropdown to placeholder
+                templateSelect.value = "";
+                // Scroll to the textarea
+                userPromptTextarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function setLoading(buttonElement, isLoading, loadingText = "Loading...") {
+            if (!buttonElement) return;
+            if (isLoading) {
+                buttonElement.disabled = true;
+                buttonElement.dataset.originalText = buttonElement.innerHTML; // Save original content
+                buttonElement.innerHTML = `<span class="loading"></span> ${loadingText}`;
+            } else {
+                buttonElement.disabled = false;
+                buttonElement.innerHTML = buttonElement.dataset.originalText || "Submit"; // Restore
+            }
+        }
+
+        function showResult(message, typeClass, targetId = null, isToast = false) {
+            const html = `<div class="${typeClass}">${escapeHtml(message)}</div>`;
+            if (targetId) {
+                const targetElement = document.getElementById(targetId);
+                if (targetElement) {
+                     if (isToast && targetElement.classList.contains('session-info')) { // Special case for session info toast
+                        const toastDiv = document.createElement('div');
+                        toastDiv.innerHTML = html;
+                        targetElement.appendChild(toastDiv.firstChild);
+                        setTimeout(() => {
+                            if(targetElement.lastChild.classList.contains(typeClass)){
+                                targetElement.removeChild(targetElement.lastChild);
+                            }
+                        }, 5000);
+                    } else {
+                        targetElement.innerHTML = html;
+                    }
+                }
+            } else { // Show as a general toast notification
+                const toast = document.createElement('div');
+                toast.className = typeClass; // Use 'result' or 'error-message'
+                toast.style.position = 'fixed';
+                toast.style.bottom = '20px';
+                toast.style.right = '20px';
+                toast.style.zIndex = '1001';
+                toast.style.maxWidth = '350px';
+                toast.style.padding = '15px';
+                toast.style.borderRadius = '8px';
+                toast.style.boxShadow = '0 5px 15px rgba(0,0,0,0.2)';
+                toast.innerHTML = escapeHtml(message);
+                document.body.appendChild(toast);
+                setTimeout(() => {
+                    if (document.body.contains(toast)) {
+                        document.body.removeChild(toast);
+                    }
+                }, 5000);
+            }
+        }
+
+        function showStatusModal(buttonElement, data) {
+            // Create modal element
+            const modal = document.createElement('div');
+            modal.id = 'statusModal';
+            modal.style.cssText = `
+                position: absolute;
+                background: white;
+                border: 2px solid #ddd;
+                border-radius: 8px;
+                padding: 16px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 1000;
+                min-width: 300px;
+                max-width: 400px;
+                font-family: Arial, sans-serif;
+                font-size: 14px;
+                line-height: 1.4;
+            `;
+            
+            // Position modal next to button
+            const buttonRect = buttonElement.getBoundingClientRect();
+            modal.style.left = (buttonRect.right + 10) + 'px';
+            modal.style.top = (buttonRect.top + window.scrollY) + 'px';
+            
+            // Create modal content
+            let content = `<div style="margin-bottom: 12px; font-weight: bold; color: ${data.isSuccess ? '#28a745' : '#dc3545'};">${escapeHtml(data.title)}</div>`;
+            
+            if (data.isSuccess) {
+                content += `
+                    <div style="margin-bottom: 8px;"><strong>Status:</strong> ${escapeHtml(data.status)}</div>
+                    <div style="margin-bottom: 8px;"><strong>Sessions:</strong> ${data.sessions}</div>
+                    <div style="margin-bottom: 8px;"><strong>Gemini Service:</strong> ${escapeHtml(data.geminiService)}</div>
+                    <div style="margin-bottom: 4px;"><strong>Models:</strong></div>
+                    <div style="margin-left: 16px; font-size: 13px;">
+                        <div style="margin-bottom: 2px;">• TTS: ${escapeHtml(data.models.TTS_MODEL)}</div>
+                        <div style="margin-bottom: 2px;">• Orchestrator: ${escapeHtml(data.models.ORCHESTRATOR_MODEL)}</div>
+                        <div style="margin-bottom: 2px;">• Transcription: ${escapeHtml(data.models.TRANSCRIPTION_MODEL)}</div>
+                    </div>
+                `;
+            } else {
+                content += `<div style="color: #dc3545;">Error: ${escapeHtml(data.error)}</div>`;
+            }
+            
+            // Add close button
+            content += `
+                <div style="margin-top: 12px; text-align: right;">
+                    <button onclick="document.getElementById('statusModal').remove()" 
+                            style="padding: 4px 12px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                        Close
+                    </button>
+                </div>
+            `;
+            
+            modal.innerHTML = content;
+            
+            // Add to page
+            document.body.appendChild(modal);
+            
+            // Auto-close on click outside
+            const closeOnClickOutside = (e) => {
+                if (!modal.contains(e.target) && !buttonElement.contains(e.target)) {
+                    modal.remove();
+                    document.removeEventListener('click', closeOnClickOutside);
+                }
+            };
+            
+            // Add event listener after a short delay to prevent immediate closure
+            setTimeout(() => {
+                document.addEventListener('click', closeOnClickOutside);
+            }, 100);
+        }
+
+        function escapeHtml(unsafe) {
+            if (typeof unsafe !== 'string') return unsafe;
+            return unsafe
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
+        }
+
+    </script>
+</body>
+</html>
