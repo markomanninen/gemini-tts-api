@@ -19,6 +19,14 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static('public'));
 
+// Increase server timeout for long-running AI operations
+app.use((req, res, next) => {
+    // Set timeout to 5 minutes for AI operations
+    req.setTimeout(300000);
+    res.setTimeout(300000);
+    next();
+});
+
 let genAI;
 if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_api_key_here') {
     genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -146,8 +154,25 @@ app.handleGenerateTranscript = async (params) => {
 
     await saveSessionData(sessionId, 'prompts', userPromptFileName, promptData);
 
-    const result = await model.generateContent(transcriptPrompt);
-    const transcript = result.response.text();
+    let transcript;
+    try {
+        console.log('Attempting to generate transcript with Gemini API...');
+        const result = await model.generateContent(transcriptPrompt);
+        transcript = result.response.text();
+        console.log('Transcript generated successfully');
+    } catch (apiError) {
+        console.error('Gemini API Error:', apiError);
+        if (apiError.message.includes('ENOTFOUND') || apiError.message.includes('ECONNREFUSED')) {
+            throw new Error('Network connectivity issue. Please check your internet connection and try again.');
+        } else if (apiError.message.includes('API_KEY_INVALID') || apiError.message.includes('401')) {
+            throw new Error('Invalid API key. Please check your GEMINI_API_KEY in the .env file.');
+        } else if (apiError.message.includes('quota') || apiError.message.includes('429')) {
+            throw new Error('API quota exceeded. Please check your Gemini API usage limits.');
+        } else {
+            throw new Error(`Gemini API error: ${apiError.message}`);
+        }
+    }
+
     const generatedTranscriptFileName = `transcript_generated_${timestamp}.json`;
     const transcriptData = { content: transcript, sourcePromptFile: userPromptFileName, timestamp: new Date() };
 
@@ -169,11 +194,25 @@ app.post('/api/generate-transcript', async (req, res) => {
         if (!prompt) {
             return res.status(400).json({ success: false, error: 'Prompt is required' });
         }
+        
+        console.log(`Starting transcript generation for session ${sessionId}`);
         const result = await app.handleGenerateTranscript(req.body);
+        console.log(`Transcript generation completed for session ${sessionId}`);
         res.json(result);
     } catch (error) {
         console.error('Error in /api/generate-transcript route:', error);
-        res.status(500).json({ success: false, error: 'Failed to generate transcript: ' + error.message });
+        
+        // Provide more specific error messages for common issues
+        let errorMessage = error.message;
+        if (error.message.includes('Network connectivity issue')) {
+            errorMessage = 'Network connectivity issue. Please check your internet connection and try again.';
+        } else if (error.message.includes('API_KEY_INVALID') || error.message.includes('Invalid API key')) {
+            errorMessage = 'Invalid API key. Please check your GEMINI_API_KEY configuration.';
+        } else if (error.message.includes('quota') || error.message.includes('429')) {
+            errorMessage = 'API quota exceeded. Please check your Gemini API usage limits.';
+        }
+        
+        res.status(500).json({ success: false, error: errorMessage });
     }
 });
 
