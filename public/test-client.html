@@ -397,6 +397,9 @@
 
         <div class="card">
             <h2>Multi-Speaker TTS</h2>
+            <p style="margin-bottom: 15px; font-size: 0.9em; color: #666; background: #f8f9fa; padding: 12px; border-radius: 6px; border-left: 4px solid #17a2b8;">
+                <strong>Note:</strong> Multi-speaker TTS requires exactly 2 speakers due to Google Generative AI API limitations.
+            </p>
             <form onsubmit="generateMultiTTS(event)">
                 <div class="form-group">
                     <label for="multiText">Text (with speaker names, e.g., Joe: Hi. Jane: Hello.):</label>
@@ -404,10 +407,23 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Speaker Configuration (Max 2):</label>
+                    <label>Speaker Configuration (Exactly 2 speakers required):</label>
                     <div id="speakerConfigs">
+                        <div class="speaker-config">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom:10px;">
+                                <input type="text" placeholder="Speaker 1 Name (e.g., Alex)" class="speaker-name" id="speaker1Name">
+                                <select class="speaker-voice" id="speaker1Voice">
+                                </select>
+                            </div>
                         </div>
-                    <button type="button" class="btn" onclick="addSpeakerConfig()" style="margin-top: 10px; background: #4a5568;">Add Speaker</button>
+                        <div class="speaker-config">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom:10px;">
+                                <input type="text" placeholder="Speaker 2 Name (e.g., Ben)" class="speaker-name" id="speaker2Name">
+                                <select class="speaker-voice" id="speaker2Voice">
+                                </select>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <button type="submit" class="btn" id="multiBtn">
@@ -438,8 +454,6 @@
         // --- Initialization ---
         document.addEventListener('DOMContentLoaded', () => {
             fetchAvailableVoices();
-            addSpeakerConfig(); // Add one speaker config by default
-            addSpeakerConfig(); // Add second speaker config by default
 
             // Set default values for some fields
             document.getElementById('transcriptPrompt').value = 'Generate a short, friendly conversation between two colleagues, Alex and Ben, discussing their weekend plans.';
@@ -448,6 +462,9 @@
             document.getElementById('multiText').value = 'Alex: Hey Ben, any exciting plans for the weekend? Ben: Not yet, Alex! I was thinking of maybe going for a hike. You?';
             document.getElementById('userPrompt').value = "Try the template menu above for ready-made prompts, or create your own! Example: Create a short, upbeat welcome message for a podcast named 'Tech Talks', spoken by a friendly female voice like Zephyr.";
 
+            // Set default speaker names
+            document.getElementById('speaker1Name').value = "Alex";
+            document.getElementById('speaker2Name').value = "Ben";
         });
 
         async function fetchAvailableVoices() {
@@ -472,56 +489,24 @@
                 const option = new Option(voice, voice);
                 singleVoiceSelect.add(option);
             });
-            // Also populate for multi-speaker configs
-            document.querySelectorAll('.speaker-voice').forEach(select => {
+            
+            // Populate the two static speaker voice selects
+            const speaker1Voice = document.getElementById('speaker1Voice');
+            const speaker2Voice = document.getElementById('speaker2Voice');
+            
+            [speaker1Voice, speaker2Voice].forEach(select => {
                 select.innerHTML = '';
-                 voices.forEach(voice => {
+                voices.forEach(voice => {
                     const option = new Option(voice, voice);
                     select.add(option);
                 });
             });
+            
             if (voices.length > 0) {
                 singleVoiceSelect.value = voices.includes('Kore') ? 'Kore' : voices[0]; // Default
-                const multiVoiceSelects = document.querySelectorAll('.speaker-voice');
-                if (multiVoiceSelects[0]) multiVoiceSelects[0].value = voices.includes('Kore') ? 'Kore' : voices[0];
-                if (multiVoiceSelects[1]) multiVoiceSelects[1].value = voices.includes('Puck') ? 'Puck' : voices[0];
-
-                // Set default speaker names for multi-speaker
-                const speakerNameInputs = document.querySelectorAll('.speaker-name');
-                if(speakerNameInputs[0]) speakerNameInputs[0].value = "Alex";
-                if(speakerNameInputs[1]) speakerNameInputs[1].value = "Ben";
+                speaker1Voice.value = voices.includes('Kore') ? 'Kore' : voices[0];
+                speaker2Voice.value = voices.includes('Puck') ? 'Puck' : (voices[1] || voices[0]);
             }
-        }
-
-
-        function addSpeakerConfig() {
-            const container = document.getElementById('speakerConfigs');
-            if (container.children.length >= 2) { // Max 2 speakers
-                showResult('Multi-speaker TTS requires exactly 2 speakers. Two speaker configurations are already present.', 'error-message', 'multiResult');
-                return;
-            }
-
-            const div = document.createElement('div');
-            div.className = 'speaker-config';
-            div.innerHTML = `
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom:10px;">
-                    <input type="text" placeholder="Speaker Name (e.g., Joe)" class="speaker-name">
-                    <select class="speaker-voice">
-                        ${availableVoices.map(v => `<option value="${v}">${v}</option>`).join('')}
-                    </select>
-                </div>
-                <button type="button" class="btn" onclick="removeSpeakerConfig(this)" style="background: #e53e3e; font-size:0.8em; padding: 6px 10px;">Remove</button>
-            `;
-            container.appendChild(div);
-        }
-
-        function removeSpeakerConfig(button) {
-            const container = document.getElementById('speakerConfigs');
-            if (container.children.length <= 2) {
-                showResult('Multi-speaker TTS requires exactly 2 speakers. Cannot remove speaker configuration.', 'error-message', 'multiResult');
-                return;
-            }
-            button.closest('.speaker-config').remove();
         }
 
 
@@ -693,9 +678,7 @@
             } finally {
                 setLoading(btn, false);
             }
-        }
-
-        async function generateMultiTTS(event) {
+        }        async function generateMultiTTS(event) {
             event.preventDefault();
             if (!ensureSession()) return;
 
@@ -705,28 +688,22 @@
             document.getElementById(resultDivId).innerHTML = '';
 
             try {
-                const speakerNameInputs = document.querySelectorAll('#speakerConfigs .speaker-name');
-                const speakerVoiceSelects = document.querySelectorAll('#speakerConfigs .speaker-voice');
-                const speakersData = [];
-                for (let i = 0; i < speakerNameInputs.length; i++) {
-                    const name = speakerNameInputs[i].value.trim();
-                    const voice = speakerVoiceSelects[i].value;
-                    if (name && voice) {
-                        speakersData.push({ name, voice });
-                    }
-                }
+                // Get the two static speaker configurations
+                const speaker1Name = document.getElementById('speaker1Name').value.trim();
+                const speaker1Voice = document.getElementById('speaker1Voice').value;
+                const speaker2Name = document.getElementById('speaker2Name').value.trim();
+                const speaker2Voice = document.getElementById('speaker2Voice').value;
 
-                if (speakersData.length === 0) {
-                    showResult('Please configure at least one speaker with a name and voice.', 'error-message', resultDivId);
-                    setLoading(btn, false);
-                    return;
-                }
-                if (speakersData.length !== 2) {
-                    showResult('Exactly 2 speakers required for multi-speaker TTS.', 'error-message', resultDivId);
+                if (!speaker1Name || !speaker2Name) {
+                    showResult('Please provide names for both speakers.', 'error-message', resultDivId);
                     setLoading(btn, false);
                     return;
                 }
 
+                const speakersData = [
+                    { name: speaker1Name, voice: speaker1Voice },
+                    { name: speaker2Name, voice: speaker2Voice }
+                ];
 
                 const response = await fetch(`${API_BASE_URL}/api/tts/multi`, {
                     method: 'POST',
@@ -901,16 +878,16 @@
                 
                 'customer-support': "Create a customer support call between representative Kelly (helpful, voice Zephyr) and customer John (frustrated, voice Kore) about a billing issue.",
 
-                // Multiple Speaker Templates (3+)
-                'panel-discussion': "Create a panel discussion with three experts: Dr. Chen (voice Aoede), Prof. Williams (voice Orus), and researcher Maria (voice Leda) discussing climate change solutions.",
+                // Multiple Speaker Templates (3+) - These require AI-Driven Generation with workarounds
+                'panel-discussion': "Create a panel discussion with three experts: Dr. Chen, Prof. Williams, and researcher Maria discussing climate change solutions. Note: This requires 3 speakers - AI will create a workaround since multi-speaker TTS only supports exactly 2 speakers.",
                 
-                'family-conversation': "Generate a family dinner conversation with Dad (voice Kore), Mom (voice Zephyr), teenage daughter Sophie (voice Puck), and young son Max (voice Fenrir) planning vacation.",
+                'family-conversation': "Generate a family dinner conversation with Dad, Mom, teenage daughter Sophie, and young son Max planning vacation. Note: This requires 4 speakers - AI will create a workaround since multi-speaker TTS only supports exactly 2 speakers.",
                 
-                'team-meeting': "Produce a team standup meeting with project lead Alice (voice Leda), developer Bob (voice Orus), designer Carol (voice Aoede), and tester Dan (voice Charon).",
+                'team-meeting': "Produce a team standup meeting with project lead Alice, developer Bob, designer Carol, and tester Dan. Note: This requires 4 speakers - AI will create a workaround since multi-speaker TTS only supports exactly 2 speakers.",
                 
-                'radio-show': "Create a morning radio show with host Jamie (voice Zephyr), co-host Alex (voice Kore), weather reporter Sam (voice Puck), and traffic reporter Riley (voice Orus).",
+                'radio-show': "Create a morning radio show with host Jamie, co-host Alex, weather reporter Sam, and traffic reporter Riley. Note: This requires 4 speakers - AI will create a workaround since multi-speaker TTS only supports exactly 2 speakers.",
                 
-                'story-narration': "Generate a short fairy tale with narrator (voice Aoede), princess Luna (voice Leda), brave knight Sir Marcus (voice Orus), and wise wizard Gandolf (voice Charon)."
+                'story-narration': "Generate a short fairy tale with narrator, princess Luna, brave knight Sir Marcus, and wise wizard Gandolf. Note: This requires 4 speakers - AI will create a workaround since multi-speaker TTS only supports exactly 2 speakers."
             };
 
             if (templates[selectedTemplate]) {

@@ -269,12 +269,13 @@ app.post('/api/tts/single', async (req, res) => {
 app.handleMultiTTS = async (params) => {
     const { sessionId, text, speakers } = params;
     if (!genAI) throw new Error("AI Service not initialized. Check GEMINI_API_KEY.");
-
-    // Validate exactly 2 speakers are provided (Google Generative AI requirement)
+    
+    // Validate speakers array - Google TTS API requires exactly 2 speakers
     if (!speakers || !Array.isArray(speakers) || speakers.length !== 2) {
-        throw new Error('Exactly 2 speakers required for multi-speaker TTS');
+        throw new Error('Exactly 2 speakers required for multi-speaker TTS (Google API limitation)');
     }
 
+    // Use the direct multi-speaker API for exactly 2 speakers
     const ttsModel = genAI.getGenerativeModel({ model: TTS_MODEL });
     const speakerVoiceConfigs = speakers.map(sp => ({
         speaker: sp.name,
@@ -311,7 +312,7 @@ app.post('/api/tts/multi', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Text and speakers array are required' });
         }
         if (speakers.length !== 2) {
-            return res.status(400).json({ success: false, error: 'Exactly 2 speakers required for multi-speaker TTS' });
+            return res.status(400).json({ success: false, error: 'Exactly 2 speakers required for multi-speaker TTS (Google API limitation)' });
         }
         for (const speaker of speakers) {
             if (!VOICES.includes(speaker.voice)) {
@@ -342,7 +343,7 @@ app.post('/api/ai-driven-generation', async (req, res) => {
         }
 
         const orchestratorGenModel = genAI.getGenerativeModel({ model: ORCHESTRATOR_MODEL });
-        const voiceDetailsForPrompt = `Available voices: ${JSON.stringify(VOICES)}. Max 2 speakers for multi-speaker.`;
+        const voiceDetailsForPrompt = `Available voices: ${JSON.stringify(VOICES)}. Multi-speaker TTS requires exactly 2 speakers (Google API limitation).`;
         const metaPrompt = `
 You are an AI assistant that plans text-to-speech (TTS) tasks. Based on the user's prompt, generate a JSON object defining the actions and parameters.
 ${voiceDetailsForPrompt}
