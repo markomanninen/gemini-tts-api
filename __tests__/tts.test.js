@@ -38,11 +38,11 @@ describe('TTS API', () => {
     });
   });
 
-  // Multi-Speaker TTS
-  describe('Multi-Speaker TTS', () => {
-    it('POST /api/tts/multi - should generate multi-speaker audio', async () => {
+  // Duo Speaker TTS (exactly 2 speakers)
+  describe('Duo Speaker TTS', () => {
+    it('POST /api/tts/duo - should generate duo speaker audio', async () => {
       const response = await request(app)
-        .post('/api/tts/multi')
+        .post('/api/tts/duo')
         .send({
           sessionId: sessionId,
           text: "SpeakerA: Hello! SpeakerB: Hi there.",
@@ -57,9 +57,9 @@ describe('TTS API', () => {
       expect(response.body.audioUrl).toBeDefined(); //
     }, 30000); // Higher timeout for potentially complex TTS
 
-    it('POST /api/tts/multi - should return error for more than 2 speakers', async () => {
+    it('POST /api/tts/duo - should return error for more than 2 speakers', async () => {
       const response = await request(app)
-        .post('/api/tts/multi')
+        .post('/api/tts/duo')
         .send({
           sessionId: sessionId,
           text: "A: Hi B: Hello C: Hey",

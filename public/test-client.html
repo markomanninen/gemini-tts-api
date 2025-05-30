@@ -152,6 +152,67 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
 
+        /* Small button styling */
+        .btn-small {
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin: 2px;
+            min-width: 80px;
+            justify-content: center;
+        }
+
+        .btn-small:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .btn-small:active {
+            transform: translateY(0px);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        /* Add button styling */
+        .btn-add {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+
+        .btn-add:hover {
+            background: linear-gradient(135deg, #218838 0%, #1ba085 100%);
+        }
+
+        .btn-add:active {
+            background: linear-gradient(135deg, #1e7e34 0%, #17a2b8 100%);
+        }
+
+        /* Remove button styling */
+        .btn-remove {
+            background: linear-gradient(135deg, #dc3545 0%, #e74c3c 100%);
+            color: white;
+        }
+
+        .btn-remove:hover {
+            background: linear-gradient(135deg, #c82333 0%, #dc2626 100%);
+        }
+
+        .btn-remove:active {
+            background: linear-gradient(135deg, #bd2130 0%, #b91c1c 100%);
+        }
+
+        /* Utility class for button spacing */
+        .btn-spacing {
+            margin-top: 10px;
+        }
+
         .session-info {
             background: #edf2f7; /* Lighter gray */
             border-left: 5px solid #667eea; /* Purple accent */
@@ -264,6 +325,15 @@
             font-size: 0.85em;
             margin-top: 4px;
         }
+        .info-note {
+            margin-bottom: 15px;
+            font-size: 0.9em;
+            color: #666;
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 4px solid #17a2b8;
+        }
 
     </style>
 </head>
@@ -305,27 +375,40 @@
                     <label for="promptTemplate">Template Prompts:</label>
                     <select id="promptTemplate" onchange="applyPromptTemplate()" style="margin-bottom: 10px;">
                         <option value="">Select a template or write your own...</option>
-                        <optgroup label="🎤 Single Speaker">
-                            <option value="podcast-intro">Podcast Introduction</option>
-                            <option value="welcome-message">Welcome Message</option>
-                            <option value="news-report">News Report</option>
-                            <option value="educational-content">Educational Content</option>
-                            <option value="commercial-ad">Commercial Advertisement</option>
+                        <optgroup label="🎤 Single Speaker - Direct Text">
+                            <option value="single-direct-news">Read News Article</option>
+                            <option value="single-direct-story">Read Short Story</option>
+                            <option value="single-direct-announcement">Read Announcement</option>
                         </optgroup>
-                        <optgroup label="👥 Two Speakers (Dual)">
-                            <option value="podcast-hosts">Podcast Co-hosts</option>
-                            <option value="interview">Interview Style</option>
-                            <option value="business-meeting">Business Meeting</option>
-                            <option value="debate">Debate/Discussion</option>
-                            <option value="teacher-student">Teacher & Student</option>
-                            <option value="customer-support">Customer Support Call</option>
+                        <optgroup label="🎤 Single Speaker - Generate Script">
+                            <option value="single-generate-podcast">Podcast Introduction</option>
+                            <option value="single-generate-welcome">Welcome Message</option>
+                            <option value="single-generate-educational">Educational Content</option>
+                            <option value="single-generate-commercial">Commercial Advertisement</option>
                         </optgroup>
-                        <optgroup label="🎭 Multiple Speakers (3+)">
-                            <option value="panel-discussion">Panel Discussion</option>
-                            <option value="family-conversation">Family Conversation</option>
-                            <option value="team-meeting">Team Meeting</option>
-                            <option value="radio-show">Radio Show</option>
-                            <option value="story-narration">Story with Characters</option>
+                        <optgroup label="👥 Duo (2 Speakers) - Direct Text">
+                            <option value="duo-direct-dialogue">Read Provided Dialogue</option>
+                            <option value="duo-direct-script">Read Drama Script</option>
+                            <option value="duo-direct-conversation">Read Conversation</option>
+                        </optgroup>
+                        <optgroup label="👥 Duo (2 Speakers) - Generate Script">
+                            <option value="duo-generate-podcast">Podcast Co-hosts</option>
+                            <option value="duo-generate-interview">Interview Style</option>
+                            <option value="duo-generate-business">Business Meeting</option>
+                            <option value="duo-generate-debate">Debate/Discussion</option>
+                            <option value="duo-generate-teacher">Teacher & Student</option>
+                        </optgroup>
+                        <optgroup label="🎭 Conversation (3+ Speakers) - Direct Text">
+                            <option value="conversation-direct-script">Read Multi-Speaker Script</option>
+                            <option value="conversation-direct-meeting">Read Meeting Minutes</option>
+                            <option value="conversation-direct-play">Read Play Script</option>
+                        </optgroup>
+                        <optgroup label="🎭 Conversation (3+ Speakers) - Generate Script">
+                            <option value="conversation-generate-panel">Panel Discussion</option>
+                            <option value="conversation-generate-family">Family Conversation</option>
+                            <option value="conversation-generate-team">Team Meeting</option>
+                            <option value="conversation-generate-fairy-tale">Fairy Tale with Characters</option>
+                            <option value="conversation-generate-radio">Radio Show</option>
                         </optgroup>
                     </select>
                 </div>
@@ -396,9 +479,9 @@
         </div>
 
         <div class="card">
-            <h2>Multi-Speaker TTS</h2>
+            <h2>Duo Speaker TTS (Exactly 2 Speakers)</h2>
             <p style="margin-bottom: 15px; font-size: 0.9em; color: #666; background: #f8f9fa; padding: 12px; border-radius: 6px; border-left: 4px solid #17a2b8;">
-                <strong>Note:</strong> Multi-speaker TTS requires exactly 2 speakers due to Google Generative AI API limitations.
+                <strong>Note:</strong> Duo speaker TTS requires exactly 2 speakers due to Google Generative AI API limitations. For 3+ speakers, use the Conversation TTS feature below.
             </p>
             <form onsubmit="generateMultiTTS(event)">
                 <div class="form-group">
@@ -427,7 +510,7 @@
                 </div>
 
                 <button type="submit" class="btn" id="multiBtn">
-                    Generate Multi-Speaker Audio
+                    Generate Duo Speaker Audio
                 </button>
             </form>
             <div id="multiResult"></div>
@@ -443,6 +526,55 @@
                 Load Session Files
             </button>
             <div id="sessionFiles" style="margin-top: 15px;"></div>
+        </div>
+
+        <div class="card">
+            <h2>🎭 Multi-Speaker Conversation (3+ Speakers)</h2>
+            <p class="info-note">
+                <strong>Advanced Multi-Speaker:</strong> This feature handles conversations with 3 or more speakers by intelligently segmenting them into 2-speaker groups, generating audio for each segment, and combining them. Perfect for panel discussions, team meetings, family conversations, etc.
+            </p>
+            <form onsubmit="generateConversationTTS(event)">
+                <div class="form-group">
+                    <label for="conversationText">Conversation Text (with speaker names):</label>
+                    <textarea id="conversationText" placeholder="Alice: Welcome everyone to today's meeting! I'm excited to share some updates.\nBob: Thanks Alice, great to be here. I have some progress to report.\nCarol: Great to see everyone. I've been working on improvements.\nAlice: Perfect! Let's start with Bob's updates, then Carol's work."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Speaker Configuration (3 or more speakers required):</label>
+                    <div id="conversationSpeakerConfigs">
+                        <div class="speaker-config">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; margin-bottom:10px; align-items: center;">
+                                <input type="text" placeholder="Speaker Name (e.g., Alice)" class="conversation-speaker-name">
+                                <select class="conversation-speaker-voice">
+                                </select>
+                                <button type="button" class="btn-small btn-remove" onclick="removeConversationSpeaker(this)">Remove</button>
+                            </div>
+                        </div>
+                        <div class="speaker-config">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; margin-bottom:10px; align-items: center;">
+                                <input type="text" placeholder="Speaker Name (e.g., Bob)" class="conversation-speaker-name">
+                                <select class="conversation-speaker-voice">
+                                </select>
+                                <button type="button" class="btn-small btn-remove" onclick="removeConversationSpeaker(this)">Remove</button>
+                            </div>
+                        </div>
+                        <div class="speaker-config">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; margin-bottom:10px; align-items: center;">
+                                <input type="text" placeholder="Speaker Name (e.g., Carol)" class="conversation-speaker-name">
+                                <select class="conversation-speaker-voice">
+                                </select>
+                                <button type="button" class="btn-small btn-remove" onclick="removeConversationSpeaker(this)">Remove</button>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-small btn-add btn-spacing" onclick="addConversationSpeaker()">Add Speaker</button>
+                </div>
+
+                <button type="submit" class="btn" id="conversationBtn">
+                    Generate Conversation Audio
+                </button>
+            </form>
+            <div id="conversationResult"></div>
         </div>
     </div>
 
@@ -460,11 +592,21 @@
             document.getElementById('speakers').value = 'Alex, Ben';
             document.getElementById('singleText').value = 'Welcome to this demonstration of advanced text-to-speech technology. I hope you find it impressive.';
             document.getElementById('multiText').value = 'Alex: Hey Ben, any exciting plans for the weekend? Ben: Not yet, Alex! I was thinking of maybe going for a hike. You?';
+            document.getElementById('conversationText').value = 'Alice: Welcome everyone to today\'s meeting! I\'m excited to share some updates with you.\nBob: Thanks Alice, I\'m excited to be here. I have some great frontend progress to report.\nCarol: Great to see everyone. I\'ve been working on some backend improvements that I think you\'ll find interesting.\nAlice: Perfect! Let\'s start with Bob\'s frontend updates, and then we\'ll hear from Carol about the backend work.';
             document.getElementById('userPrompt').value = "Try the template menu above for ready-made prompts, or create your own! Example: Create a short, upbeat welcome message for a podcast named 'Tech Talks', spoken by a friendly female voice like Zephyr.";
 
-            // Set default speaker names
+            // Set default speaker names for duo TTS
             document.getElementById('speaker1Name').value = "Alex";
             document.getElementById('speaker2Name').value = "Ben";
+
+            // Set default speaker names for conversation TTS
+            const conversationSpeakerNames = document.querySelectorAll('.conversation-speaker-name');
+            const defaultConversationNames = ['Alice', 'Bob', 'Carol'];
+            conversationSpeakerNames.forEach((input, index) => {
+                if (index < defaultConversationNames.length) {
+                    input.value = defaultConversationNames[index];
+                }
+            });
         });
 
         async function fetchAvailableVoices() {
@@ -501,11 +643,27 @@
                     select.add(option);
                 });
             });
+
+            // Populate conversation speaker voice selects
+            const conversationVoiceSelects = document.querySelectorAll('.conversation-speaker-voice');
+            conversationVoiceSelects.forEach(select => {
+                select.innerHTML = '';
+                voices.forEach(voice => {
+                    const option = new Option(voice, voice);
+                    select.add(option);
+                });
+            });
             
             if (voices.length > 0) {
                 singleVoiceSelect.value = voices.includes('Kore') ? 'Kore' : voices[0]; // Default
                 speaker1Voice.value = voices.includes('Kore') ? 'Kore' : voices[0];
                 speaker2Voice.value = voices.includes('Puck') ? 'Puck' : (voices[1] || voices[0]);
+                
+                // Set defaults for conversation speakers
+                conversationVoiceSelects.forEach((select, index) => {
+                    const defaultVoices = ['Kore', 'Puck', 'Zephyr', 'Orus', 'Aoede'];
+                    select.value = voices.includes(defaultVoices[index]) ? defaultVoices[index] : voices[index % voices.length];
+                });
             }
         }
 
@@ -616,7 +774,7 @@
                             <h4>Generated Transcript:</h4>
                             <pre>${escapeHtml(data.transcript)}</pre>
                             <button class="btn" style="margin-top:10px;" onclick="useTranscriptForMultiTTS()">
-                                Use for Multi-Speaker TTS
+                                Use for Duo Speaker TTS
                             </button>
                         </div>`;
                 } else {
@@ -705,7 +863,7 @@
                     { name: speaker2Name, voice: speaker2Voice }
                 ];
 
-                const response = await fetch(`${API_BASE_URL}/api/tts/multi`, {
+                const response = await fetch(`${API_BASE_URL}/api/tts/duo`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -719,7 +877,7 @@
                     const speakerList = data.speakers.map(s => `${escapeHtml(s.name)} (${escapeHtml(s.voice)})`).join(', ');
                     document.getElementById(resultDivId).innerHTML = `
                         <div class="result">
-                            <h4>Multi-Speaker Audio Generated!</h4>
+                            <h4>Duo Speaker Audio Generated!</h4>
                             <p><strong>Speakers:</strong> ${speakerList}</p>
                             <p><strong>File:</strong> ${escapeHtml(data.audioFile)}</p>
                             <div class="audio-controls">
@@ -727,10 +885,118 @@
                             </div>
                         </div>`;
                 } else {
-                    showResult(data.error || 'Failed to generate multi-speaker audio', 'error-message', resultDivId);
+                    showResult(data.error || 'Failed to generate duo speaker audio', 'error-message', resultDivId);
                 }
             } catch (error) {
-                showResult('Error generating multi-speaker audio: ' + error.message, 'error-message', resultDivId);
+                showResult('Error generating duo speaker audio: ' + error.message, 'error-message', resultDivId);
+            } finally {
+                setLoading(btn, false);
+            }
+        }
+
+        async function generateConversationTTS(event) {
+            event.preventDefault();
+            if (!ensureSession()) return;
+
+            const btn = document.getElementById('conversationBtn');
+            setLoading(btn, true, "Generating...");
+            const resultDivId = 'conversationResult';
+            document.getElementById(resultDivId).innerHTML = '';
+
+            try {
+                // Collect conversation speaker configurations
+                const speakerNames = document.querySelectorAll('.conversation-speaker-name');
+                const speakerVoices = document.querySelectorAll('.conversation-speaker-voice');
+                
+                const speakersData = [];
+                for (let i = 0; i < speakerNames.length; i++) {
+                    const name = speakerNames[i].value.trim();
+                    const voice = speakerVoices[i].value;
+                    if (name) {
+                        speakersData.push({ name, voice });
+                    }
+                }
+
+                // Validate we have at least 3 speakers
+                if (speakersData.length < 3) {
+                    showResult('Conversation TTS requires at least 3 speakers. Please add more speakers or use the regular Multi-Speaker TTS for 2 speakers.', 'error-message', resultDivId);
+                    setLoading(btn, false);
+                    return;
+                }
+
+                // Check for duplicate speaker names
+                const uniqueNames = new Set(speakersData.map(s => s.name.toLowerCase()));
+                if (uniqueNames.size !== speakersData.length) {
+                    showResult('Each speaker must have a unique name. Please check for duplicates.', 'error-message', resultDivId);
+                    setLoading(btn, false);
+                    return;
+                }
+
+                const conversationText = document.getElementById('conversationText').value.trim();
+                if (!conversationText) {
+                    showResult('Please provide conversation text.', 'error-message', resultDivId);
+                    setLoading(btn, false);
+                    return;
+                }
+
+                const response = await fetch(`${API_BASE_URL}/api/tts/conversation`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sessionId: currentSessionId,
+                        text: conversationText,
+                        speakers: speakersData
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    let html = `
+                        <div class="result">
+                            <h4>Conversation Audio Generated!</h4>
+                            <p><strong>Speakers:</strong> ${speakersData.map(s => `${escapeHtml(s.name)} (${escapeHtml(s.voice)})`).join(', ')}</p>
+                            <p><strong>Segments:</strong> ${data.segments.length} audio segments created</p>
+                            <p><strong>Final Audio File:</strong> ${escapeHtml(data.audioFile)}</p>
+                            <div class="audio-controls">
+                                <audio controls src="${API_BASE_URL}${data.audioUrl}">Your browser does not support audio.</audio>
+                            </div>
+                    `;
+                    
+                    // Show segment details if available
+                    if (data.segments && data.segments.length > 0) {
+                        html += `
+                            <details style="margin-top: 15px;">
+                                <summary style="cursor: pointer; font-weight: bold; margin-bottom: 10px;">View Conversation Segments</summary>
+                                <div style="background: #f8f9fa; padding: 10px; border-radius: 4px;">
+                        `;
+                        
+                        data.segments.forEach((segment, index) => {
+                            html += `
+                                <div style="margin-bottom: 15px; padding: 10px; background: white; border-radius: 4px; border-left: 3px solid #007bff;">
+                                    <h5 style="margin: 0 0 8px 0; color: #007bff;">Segment ${index + 1}</h5>
+                                    <p style="margin: 0 0 5px 0;"><strong>Speakers:</strong> ${segment.speakers.map(s => `${escapeHtml(s.name)} (${escapeHtml(s.voice)})`).join(', ')}</p>
+                                    <p style="margin: 0 0 8px 0;"><strong>Text:</strong></p>
+                                    <pre style="background: #f1f3f4; padding: 8px; border-radius: 3px; margin: 0; white-space: pre-wrap; font-size: 0.9em;">${escapeHtml(segment.text)}</pre>
+                                    <audio controls src="${API_BASE_URL}${segment.audioUrl}" style="width: 100%; margin-top: 8px;">
+                                        Your browser does not support audio.
+                                    </audio>
+                                </div>
+                            `;
+                        });
+                        
+                        html += `
+                                </div>
+                            </details>
+                        `;
+                    }
+                    
+                    html += `</div>`;
+                    document.getElementById(resultDivId).innerHTML = html;
+                } else {
+                    showResult(data.error || 'Failed to generate conversation audio', 'error-message', resultDivId);
+                }
+            } catch (error) {
+                showResult('Error generating conversation audio: ' + error.message, 'error-message', resultDivId);
             } finally {
                 setLoading(btn, false);
             }
@@ -746,14 +1012,21 @@
             document.getElementById(resultDivId).innerHTML = '';
 
             try {
+                // Create AbortController for timeout handling
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minutes timeout
+
                 const response = await fetch(`${API_BASE_URL}/api/ai-driven-generation`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         sessionId: currentSessionId,
                         userPrompt: document.getElementById('userPrompt').value
-                    })
+                    }),
+                    signal: controller.signal
                 });
+
+                clearTimeout(timeoutId);
                 const data = await response.json();
                 let html = '';
                 if (data.success) {
@@ -777,7 +1050,27 @@
                     showResult(`Error: ${data.error}` + (data.details ? `<br><pre>${escapeHtml(JSON.stringify(data.details, null, 2))}</pre>` : ''), 'error-message', resultDivId);
                 }
             } catch (error) {
-                showResult('Client-side error: ' + error.message, 'error-message', resultDivId);
+                if (error.name === 'AbortError') {
+                    // Handle timeout case - check if task completed anyway
+                    showResult(
+                        `Request timed out after 2 minutes, but the task may still be processing on the server. ` +
+                        `Please check the Session Files section below to see if audio was generated. ` +
+                        `<button class="btn" onclick="loadSessionFiles()" style="margin-top:10px;">Check Session Files</button>`,
+                        'error-message', 
+                        resultDivId
+                    );
+                } else if (error.message.includes('Load failed') || error.message.includes('Failed to fetch')) {
+                    // Handle network/load failures
+                    showResult(
+                        `Network error or server timeout occurred. The task may still be processing on the server. ` +
+                        `Please wait a moment and check the Session Files to see if the generation completed. ` +
+                        `<button class="btn" onclick="loadSessionFiles()" style="margin-top:10px;">Check Session Files</button>`,
+                        'error-message',
+                        resultDivId
+                    );
+                } else {
+                    showResult('Client-side error: ' + error.message, 'error-message', resultDivId);
+                }
             } finally {
                 setLoading(btn, false);
             }
@@ -841,9 +1134,9 @@
                 return;
             }
             document.getElementById('multiText').value = transcript;
-            // Optionally, scroll to the multi-speaker section
+            // Optionally, scroll to the duo speaker section
             document.getElementById('multiText').scrollIntoView({ behavior: 'smooth', block: 'center' });
-            showResult('Transcript copied to Multi-Speaker TTS text area.', 'success', null, true);
+            showResult('Transcript copied to Duo Speaker TTS text area.', 'success', null, true);
         }
 
         function applyPromptTemplate() {
@@ -854,40 +1147,57 @@
             if (!selectedTemplate) return;
 
             const templates = {
-                // Single Speaker Templates
-                'podcast-intro': "Create an engaging 30-second introduction for a tech podcast called 'Future Insights' using a professional, warm female voice like Zephyr.",
+                // 🎤 Single Speaker - Direct Text Templates
+                'single-direct-news': "Read this news article: Breaking News: Scientists have announced a major breakthrough in quantum computing technology. The new processors can solve complex calculations 1000 times faster than current systems. This development could revolutionize fields including medicine, finance, and artificial intelligence.",
                 
-                'welcome-message': "Generate a friendly welcome message for a new mobile app called 'TaskMaster Pro' using an enthusiastic voice like Kore.",
+                'single-direct-story': "Read this story: Once upon a time, in a small village nestled between rolling hills, there lived a kind baker named Emma. Every morning, she would rise before dawn to prepare fresh bread for her neighbors. The aroma of warm pastry filled the streets, bringing smiles to everyone who passed by her little shop.",
                 
-                'news-report': "Create a serious news report about renewable energy developments using a clear, authoritative voice like Orus.",
-                
-                'educational-content': "Produce an educational explanation about photosynthesis for middle school students using a patient, clear voice like Aoede.",
-                
-                'commercial-ad': "Create a 15-second commercial for a local coffee shop called 'Sunrise Café' using an upbeat, friendly voice like Puck.",
+                'single-direct-announcement': "Read this announcement: Welcome to the 2024 Annual Technology Conference! We're excited to have you join us for three days of innovation, networking, and groundbreaking presentations. Please check in at the registration desk and pick up your welcome packet. The opening keynote begins at 9 AM in the main auditorium.",
 
-                // Two Speaker Templates (Dual)
-                'podcast-hosts': "Create a 1-minute dialogue between two podcast co-hosts, Sarah (enthusiastic, voice Zephyr) and Mike (analytical, voice Orus), discussing the latest AI developments in healthcare.",
+                // 🎤 Single Speaker - Generate Script Templates  
+                'single-generate-podcast': "Create an engaging 30-second introduction for a tech podcast called 'Future Insights' using a professional, warm voice.",
                 
-                'interview': "Generate an interview between journalist Emma (professional, voice Aoede) and tech CEO David (confident, voice Kore) about startup innovations.",
+                'single-generate-welcome': "Generate a friendly welcome message for a new mobile app called 'TaskMaster Pro' using an enthusiastic voice.",
                 
-                'business-meeting': "Create a brief business meeting conversation between project manager Lisa (organized, voice Leda) and developer Tom (technical, voice Fenrir) discussing project deadlines.",
+                'single-generate-educational': "Produce an educational a short explanation about photosynthesis for 5-year old using a patient, clear voice.",
                 
-                'debate': "Produce a short debate between two political commentators, Alex (passionate, voice Charon) and Jordan (measured, voice Callirrhoe), about education policy.",
-                
-                'teacher-student': "Generate a dialogue between Professor Smith (wise, voice Orus) and student Amy (curious, voice Autonoe) about quantum physics concepts.",
-                
-                'customer-support': "Create a customer support call between representative Kelly (helpful, voice Zephyr) and customer John (frustrated, voice Kore) about a billing issue.",
+                'single-generate-commercial': "Create a 15-second commercial for a local coffee shop called 'Sunrise Café' using an upbeat, friendly voice.",
 
-                // Multiple Speaker Templates (3+) - These require AI-Driven Generation with workarounds
-                'panel-discussion': "Create a panel discussion with three experts: Dr. Chen, Prof. Williams, and researcher Maria discussing climate change solutions. Note: This requires 3 speakers - AI will create a workaround since multi-speaker TTS only supports exactly 2 speakers.",
+                // 👥 Duo (2 Speakers) - Direct Text Templates
+                'duo-direct-dialogue': "Read this dialogue: Alex: Hey Sarah, did you finish the project report? Sarah: Yes, I just submitted it this morning. The client should receive it by noon. Alex: Perfect! I'll prepare for the presentation then. Sarah: Great, I'll gather the supporting documents we might need.",
                 
-                'family-conversation': "Generate a family dinner conversation with Dad, Mom, teenage daughter Sophie, and young son Max planning vacation. Note: This requires 4 speakers - AI will create a workaround since multi-speaker TTS only supports exactly 2 speakers.",
+                'duo-direct-script': "Read this script: NARRATOR: It was a dark and stormy night. DETECTIVE: The evidence points to only one conclusion. NARRATOR: The detective examined the mysterious letter carefully. DETECTIVE: This handwriting... I've seen it before.",
                 
-                'team-meeting': "Produce a team standup meeting with project lead Alice, developer Bob, designer Carol, and tester Dan. Note: This requires 4 speakers - AI will create a workaround since multi-speaker TTS only supports exactly 2 speakers.",
+                'duo-direct-conversation': "Read this conversation: Tom: Good morning, Jane! How was your weekend? Jane: It was wonderful, Tom. I went hiking in the mountains. The views were absolutely breathtaking! Tom: That sounds amazing. I should try hiking sometime. Jane: You definitely should! I can recommend some great trails for beginners.",
+
+                // 👥 Duo (2 Speakers) - Generate Script Templates
+                'duo-generate-podcast': "Create a 1-minute dialogue between two podcast co-hosts, Sarah (enthusiastic) and Mike (analytical), discussing the latest AI developments in healthcare.",
                 
-                'radio-show': "Create a morning radio show with host Jamie, co-host Alex, weather reporter Sam, and traffic reporter Riley. Note: This requires 4 speakers - AI will create a workaround since multi-speaker TTS only supports exactly 2 speakers.",
+                'duo-generate-interview': "Generate an interview between journalist Emma (professional) and tech CEO David (confident) about startup innovations.",
                 
-                'story-narration': "Generate a short fairy tale with narrator, princess Luna, brave knight Sir Marcus, and wise wizard Gandolf. Note: This requires 4 speakers - AI will create a workaround since multi-speaker TTS only supports exactly 2 speakers."
+                'duo-generate-business': "Create a brief business meeting conversation between project manager Lisa (organized) and developer Tom (technical) discussing project deadlines.",
+                
+                'duo-generate-debate': "Produce a short debate between two political commentators, Alex (passionate) and Jordan (measured), about education policy.",
+                
+                'duo-generate-teacher': "Generate a dialogue between Professor Smith (wise) and student Amy (curious) about quantum physics concepts.",
+
+                // 🎭 Conversation (3+ Speakers) - Direct Text Templates
+                'conversation-direct-script': "Read this multi-speaker script: ALICE: Welcome everyone to today's meeting! BOB: Thanks Alice, glad to be here. CAROL: Great to see everyone. ALICE: Let's start with updates. BOB: I've completed the frontend work. CAROL: And I've finished the backend integration. ALICE: Excellent progress team!",
+                
+                'conversation-direct-meeting': "Read these meeting minutes: CHAIRPERSON: Meeting called to order at 2 PM. SECRETARY: All members present. TREASURER: Budget report shows positive balance. CHAIRPERSON: Excellent news. MEMBER: I'd like to propose a new initiative. SECRETARY: Please elaborate on the details.",
+                
+                'conversation-direct-play': "Read this play script: ROMEO: But soft, what light through yonder window breaks? JULIET: Romeo, Romeo, wherefore art thou Romeo? NURSE: Juliet! Your mother calls! ROMEO: I must away before the dawn. JULIET: When shall we meet again?",
+
+                // 🎭 Conversation (3+ Speakers) - Generate Script Templates
+                'conversation-generate-panel': "Create a panel discussion with three experts: Dr. Chen, Prof. Williams, and researcher Maria discussing climate change solutions.",
+                
+                'conversation-generate-family': "Generate a family dinner conversation with Dad, Mom, teenage daughter Sophie, and young son Max planning vacation.",
+                
+                'conversation-generate-team': "Produce a team standup meeting with project lead Alice, developer Bob, designer Carol, and tester Dan.",
+                
+                'conversation-generate-fairy-tale': "Generate a short fairy tale with narrator, princess Luna, brave knight Sir Marcus, and wise wizard Gandolf.",
+                
+                'conversation-generate-radio': "Create a morning radio show with host Jamie, co-host Alex, weather reporter Sam, and traffic reporter Riley."
             };
 
             if (templates[selectedTemplate]) {
@@ -904,9 +1214,32 @@
             if (isLoading) {
                 buttonElement.disabled = true;
                 buttonElement.dataset.originalText = buttonElement.innerHTML; // Save original content
-                buttonElement.innerHTML = `<span class="loading"></span> ${loadingText}`;
+                
+                // Start timer for AI-driven generation button
+                if (buttonElement.id === 'aiDrivenBtn') {
+                    buttonElement.dataset.startTime = Date.now();
+                    buttonElement.innerHTML = `<span class="loading"></span> ${loadingText} (0s)`;
+                    
+                    // Update timer every second
+                    buttonElement.dataset.timerInterval = setInterval(() => {
+                        if (buttonElement.disabled && buttonElement.dataset.startTime) {
+                            const elapsed = Math.floor((Date.now() - parseInt(buttonElement.dataset.startTime)) / 1000);
+                            buttonElement.innerHTML = `<span class="loading"></span> ${loadingText} (${elapsed}s)`;
+                        }
+                    }, 1000);
+                } else {
+                    buttonElement.innerHTML = `<span class="loading"></span> ${loadingText}`;
+                }
             } else {
                 buttonElement.disabled = false;
+                
+                // Clear timer for AI-driven generation button
+                if (buttonElement.id === 'aiDrivenBtn' && buttonElement.dataset.timerInterval) {
+                    clearInterval(parseInt(buttonElement.dataset.timerInterval));
+                    delete buttonElement.dataset.timerInterval;
+                    delete buttonElement.dataset.startTime;
+                }
+                
                 buttonElement.innerHTML = buttonElement.dataset.originalText || "Submit"; // Restore
             }
         }
@@ -1030,6 +1363,41 @@
                  .replace(/>/g, "&gt;")
                  .replace(/"/g, "&quot;")
                  .replace(/'/g, "&#039;");
+        }
+
+        function addConversationSpeaker() {
+            const container = document.getElementById('conversationSpeakerConfigs');
+            const speakerConfig = document.createElement('div');
+            speakerConfig.className = 'speaker-config';
+            speakerConfig.innerHTML = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; margin-bottom:10px; align-items: center;">
+                    <input type="text" placeholder="Speaker Name (e.g., Alice)" class="conversation-speaker-name">
+                    <select class="conversation-speaker-voice">
+                    </select>
+                    <button type="button" class="btn-small btn-remove" onclick="removeConversationSpeaker(this)">Remove</button>
+                </div>
+            `;
+            container.appendChild(speakerConfig);
+
+            // Repopulate voices for the new speaker
+            const voiceSelect = speakerConfig.querySelector('.conversation-speaker-voice');
+            availableVoices.forEach(voice => {
+                const option = new Option(voice, voice);
+                voiceSelect.add(option);
+            });
+            
+            // Set a default voice (rotate through available voices)
+            const existingSpeakers = document.querySelectorAll('.conversation-speaker-voice').length - 1;
+            if (availableVoices.length > 0) {
+                voiceSelect.value = availableVoices[existingSpeakers % availableVoices.length];
+            }
+        }
+
+        function removeConversationSpeaker(button) {
+            const speakerConfig = button.closest('.speaker-config');
+            if (speakerConfig) {
+                speakerConfig.remove();
+            }
         }
 
     </script>

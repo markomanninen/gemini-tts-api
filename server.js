@@ -5,9 +5,9 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const wav = require('wav');
 const cors = require('cors');
+const ffmpeg = require('fluent-ffmpeg');
 require('dotenv').config();
 
-// Model configurations from environment variables or defaults
 const TTS_MODEL = process.env.TTS_MODEL_NAME || 'gemini-2.5-flash-preview-tts';
 const ORCHESTRATOR_MODEL = process.env.ORCHESTRATOR_MODEL_NAME || 'gemini-2.5-flash-preview-05-20';
 const TRANSCRIPTION_MODEL = process.env.TRANSCRIPTION_MODEL_NAME || 'gemini-2.5-pro-preview-05-06';
@@ -281,28 +281,69 @@ app.handleMultiTTS = async (params) => {
         speaker: sp.name,
         voiceConfig: { prebuiltVoiceConfig: { voiceName: sp.voice } }
     }));
-    const ttsResponse = await ttsModel.generateContent({
-        contents: [{ parts: [{ text }] }],
-        generationConfig: {
-            responseModalities: ['AUDIO'],
-            speechConfig: { multiSpeakerVoiceConfig: { speakerVoiceConfigs } }
+    
+    // Add retry logic for API failures
+    let lastError;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+            console.log(`TTS attempt ${attempt} for text: "${text.substring(0, 100)}..."`);
+            const ttsResponse = await ttsModel.generateContent({
+                contents: [{ parts: [{ text }] }],
+                generationConfig: {
+                    responseModalities: ['AUDIO'],
+                    speechConfig: { multiSpeakerVoiceConfig: { speakerVoiceConfigs } }
+                }
+            });
+            
+            const response = ttsResponse.response;
+            const audioData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+            
+            if (!audioData) {
+                const finishReason = response.candidates?.[0]?.finishReason;
+                console.error(`Multi-TTS API Response (attempt ${attempt}):`, JSON.stringify(response, null, 2));
+                
+                if (finishReason === 'OTHER' || finishReason === 'SAFETY') {
+                    // Try to clean the text and retry
+                    if (attempt < 3) {
+                        console.log(`Retrying with cleaned text (attempt ${attempt + 1})`);
+                        // Clean the text by removing any potentially problematic characters
+                        text = text.replace(/[^\w\s:.,!?-]/g, '').trim();
+                        continue;
+                    }
+                    throw new Error(`TTS API refused to generate audio. Reason: ${finishReason}. This may be due to content policy restrictions.`);
+                }
+                
+                if (attempt === 3) {
+                    throw new Error('No audio data received from multi-speaker TTS API after 3 attempts');
+                }
+                
+                // Wait before retry
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+                continue;
+            }
+            
+            const audioBuffer = Buffer.from(audioData, 'base64');
+            const timestamp = Date.now();
+            const audioFileName = `multi_${speakers.map(s=>s.name.replace(/[^a-z0-9]/gi, '_')).join('_')}_${timestamp}.wav`;
+            const audioFilePath = path.join(sessions.get(sessionId).directory, 'audio', audioFileName);
+            await saveWaveFile(audioFilePath, audioBuffer);
+            sessions.get(sessionId).files.audio.push(audioFileName);
+            return { success: true, audioFile: audioFileName, speakers, text, audioUrl: `/api/audio/${sessionId}/${audioFileName}` };
+            
+        } catch (error) {
+            lastError = error;
+            console.error(`TTS attempt ${attempt} failed:`, error.message);
+            if (attempt < 3) {
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+            }
         }
-    });
-    const audioData = ttsResponse.response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (!audioData) {
-        console.error("Multi-TTS API Response dump:", JSON.stringify(ttsResponse.response, null, 2));
-        throw new Error('No audio data received from multi-speaker TTS API');
     }
-    const audioBuffer = Buffer.from(audioData, 'base64');
-    const timestamp = Date.now();
-    const audioFileName = `multi_${speakers.map(s=>s.name.replace(/[^a-z0-9]/gi, '_')).join('_')}_${timestamp}.wav`;
-    const audioFilePath = path.join(sessions.get(sessionId).directory, 'audio', audioFileName);
-    await saveWaveFile(audioFilePath, audioBuffer);
-    sessions.get(sessionId).files.audio.push(audioFileName);
-    return { success: true, audioFile: audioFileName, speakers, text, audioUrl: `/api/audio/${sessionId}/${audioFileName}` };
+    
+    throw lastError || new Error('Multi-speaker TTS failed after 3 attempts');
 };
 
-app.post('/api/tts/multi', async (req, res) => {
+// Rename multi to duo for clarity
+app.post('/api/tts/duo', async (req, res) => {
     try {
         const { sessionId, text, speakers } = req.body;
         if (!sessionId || !sessions.has(sessionId)) {
@@ -312,7 +353,7 @@ app.post('/api/tts/multi', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Text and speakers array are required' });
         }
         if (speakers.length !== 2) {
-            return res.status(400).json({ success: false, error: 'Exactly 2 speakers required for multi-speaker TTS (Google API limitation)' });
+            return res.status(400).json({ success: false, error: 'Exactly 2 speakers required for duo TTS (Google API limitation)' });
         }
         for (const speaker of speakers) {
             if (!VOICES.includes(speaker.voice)) {
@@ -325,8 +366,43 @@ app.post('/api/tts/multi', async (req, res) => {
         const result = await app.handleMultiTTS(req.body);
         res.json(result);
     } catch (error) {
-        console.error('Error in /api/tts/multi route:', error);
-        res.status(500).json({ success: false, error: 'Failed in multi-speaker TTS: ' + error.message });
+        console.error('Error in /api/tts/duo route:', error);
+        res.status(500).json({ success: false, error: 'Failed in duo speaker TTS: ' + error.message });
+    }
+});
+
+// New conversation endpoint for handling 3+ speakers by intelligent segmentation
+app.post('/api/tts/conversation', async (req, res) => {
+    if (!genAI) return res.status(503).json({ success: false, error: "AI Service not initialized. Check GEMINI_API_KEY." });
+    try {
+        const { sessionId, text, speakers } = req.body;
+        if (!sessionId || !sessions.has(sessionId)) {
+            return res.status(400).json({ success: false, error: 'Valid session ID required' });
+        }
+        if (!text || !speakers || !Array.isArray(speakers) || speakers.length < 3) {
+            return res.status(400).json({ success: false, error: 'Text and speakers array with at least 3 speakers are required for conversation TTS' });
+        }
+        for (const speaker of speakers) {
+            if (!VOICES.includes(speaker.voice)) {
+                return res.status(400).json({ success: false, error: `Invalid voice "${speaker.voice}" for speaker "${speaker.name}"` });
+            }
+            if(!speaker.name || typeof speaker.name !== 'string' || speaker.name.trim() === '') {
+                return res.status(400).json({ success: false, error: `Speaker name is required and must be a non-empty string for voice ${speaker.voice}.` });
+            }
+        }
+        
+        // Check for duplicate speaker names
+        const speakerNames = speakers.map(s => s.name.toLowerCase());
+        const uniqueNames = new Set(speakerNames);
+        if (uniqueNames.size !== speakerNames.length) {
+            return res.status(400).json({ success: false, error: 'Speakers must have unique names. Found duplicate speaker names.' });
+        }
+        
+        const result = await app.handleConversationTTS(req.body);
+        res.json(result);
+    } catch (error) {
+        console.error('Error in /api/tts/conversation route:', error);
+        res.status(500).json({ success: false, error: 'Failed in conversation TTS: ' + error.message });
     }
 });
 
@@ -345,29 +421,68 @@ app.post('/api/ai-driven-generation', async (req, res) => {
         const orchestratorGenModel = genAI.getGenerativeModel({ model: ORCHESTRATOR_MODEL });
         const voiceDetailsForPrompt = `Available voices: ${JSON.stringify(VOICES)}. Multi-speaker TTS requires exactly 2 speakers (Google API limitation).`;
         const metaPrompt = `
-You are an AI assistant that plans text-to-speech (TTS) tasks. Based on the user's prompt, generate a JSON object defining the actions and parameters.
+You are an AI assistant that plans text-to-speech (TTS) tasks. Based on the user's EXACT prompt, generate a JSON object defining the actions and parameters.
+
+CRITICAL: You MUST analyze the USER'S ACTUAL REQUEST below, not generate unrelated content.
+
+USER PROMPT TO ANALYZE: "${userPrompt}"
+
 ${voiceDetailsForPrompt}
-Output MUST be a single valid JSON object with this structure:
+
+COMPLETE TASK TYPE OPTIONS:
+1. "single_tts_direct" - User provides ready text for single speaker
+2. "single_tts_generate" - Generate script for single speaker 
+3. "duo_tts_direct" - User provides ready text for exactly 2 speakers
+4. "duo_tts_generate" - Generate script for exactly 2 speakers
+5. "conversation_tts_direct" - User provides ready text for 3+ speakers
+6. "conversation_tts_generate" - Generate script for 3+ speakers
+
+ANALYSIS RULES:
+1. Determine if user is providing TEXT or asking to GENERATE content:
+   - Keywords like "Generate", "Create", "Write" = GENERATE
+   - User provides actual dialogue/text = DIRECT
+
+2. Count DISTINCT SPEAKING CHARACTERS:
+   - Extract character names from user's prompt
+   - If user provides text with "Name: dialogue", count speakers
+   - Consider narrator as a speaking character if mentioned
+
+3. Select taskType based on speaker count and content type:
+   - 1 speaker + provided text = "single_tts_direct"
+   - 1 speaker + generate request = "single_tts_generate"
+   - 2 speakers + provided text = "duo_tts_direct"  
+   - 2 speakers + generate request = "duo_tts_generate"
+   - 3+ speakers + provided text = "conversation_tts_direct"
+   - 3+ speakers + generate request = "conversation_tts_generate"
+
+OUTPUT STRUCTURE:
 {
-  "taskType": "single_tts" | "multi_tts_direct" | "generate_script_then_tts",
-  "scriptToGeneratePrompt": "If 'generate_script_then_tts', the detailed prompt for script generation. Else null.",
-  "scriptSpeakers": ["SpeakerName1", "SpeakerName2"],
-  "scriptStyle": "e.g., podcast, dialogue.",
-  "fullTextForTTS": "The complete text for TTS. For 'generate_script_then_tts', this can be a placeholder like 'Script to be generated'.",
-  "singleSpeakerVoice": "VoiceName",
-  "singleSpeakerStyle": "e.g., cheerfully",
-  "multiSpeakerConfig": [ {"name": "SpeakerNameInScript", "voice": "VoiceName"} ]
+  "taskType": "single_tts_direct|single_tts_generate|duo_tts_direct|duo_tts_generate|conversation_tts_direct|conversation_tts_generate",
+  "scriptToGeneratePrompt": "User's exact request for generation, or null if direct",
+  "scriptSpeakers": ["Exact character names from user's prompt"],
+  "scriptStyle": "Style extracted from user's request",
+  "fullTextForTTS": "User's provided text or 'Script to be generated'",
+  "singleSpeakerVoice": "Voice for single speaker tasks",
+  "singleSpeakerStyle": "Style for single speaker",
+  "duoSpeakerConfig": [{"name": "Name", "voice": "Voice"}] for duo tasks,
+  "conversationSpeakers": [{"name": "Name", "voice": "Voice"}] for conversation tasks
 }
-Guidelines:
-1. User Prompt: "${userPrompt}"
-2. Analyze prompt for taskType.
-   a. "single_tts": User provides text for one voice. 'fullTextForTTS' is user's text. Choose 'singleSpeakerVoice', optional 'singleSpeakerStyle'.
-   b. "multi_tts_direct": User provides text with speaker labels (e.g., "Tom: Hi."). 'fullTextForTTS' is user's text. Populate 'multiSpeakerConfig' with EXACTLY 2 speakers.
-   c. "generate_script_then_tts": User asks to create content. Formulate 'scriptToGeneratePrompt', define 'scriptSpeakers' (EXACTLY 2), 'scriptStyle'. Set 'multiSpeakerConfig' with EXACTLY 2 speakers.
-3. Voice Selection: Choose from available voices. Match user descriptions. Ensure valid.
-4. Speaker Names: For generated scripts, if names aren't in prompt, create logical names.
-5. CRITICAL: Multi-speaker TTS requires EXACTLY 2 speakers. Never create multiSpeakerConfig with only 1 speaker - use single_tts instead.
-Respond ONLY with the JSON object.
+
+EXAMPLES:
+- "Generate fairy tale with narrator, princess Luna, knight Sir Marcus, wizard Gandolf" 
+  → conversation_tts_generate (4 speakers, generate content)
+- "Create dialogue between Tom and Jane about weather"
+  → duo_tts_generate (2 speakers, generate content)  
+- "Read this: Tom: Hello. Jane: Hi there."
+  → duo_tts_direct (2 speakers, text provided)
+- "Generate a podcast intro about science"
+  → single_tts_generate (1 speaker, generate content)
+- "Read this story: Once upon a time..."
+  → single_tts_direct (1 speaker, text provided)
+
+VOICE ASSIGNMENT: Choose from ${VOICES.join(', ')} matching character descriptions.
+
+Respond ONLY with the JSON object for the USER'S EXACT REQUEST.
 `;
 
         const orchestratorResult = await orchestratorGenModel.generateContent(metaPrompt);
@@ -388,38 +503,127 @@ Respond ONLY with the JSON object.
         let generatedScriptText = null;
 
         switch (plan.taskType) {
-            case 'single_tts':
+            case 'single_tts_direct':
+                // User provides ready text for single speaker
                 if (!plan.fullTextForTTS || !plan.singleSpeakerVoice) {
-                    return res.status(400).json({ success: false, error: "AI Plan Error: Missing text or voice for single_tts.", plan });
+                    return res.status(400).json({ success: false, error: "AI Plan Error: Missing text or voice for single_tts_direct.", plan });
                 }
-                const singleRes = await app.handleSingleTTS({ sessionId, text: plan.fullTextForTTS, voice: plan.singleSpeakerVoice, style: plan.singleSpeakerStyle });
-                if (!singleRes.success) throw new Error(singleRes.error || "Single TTS failed within AI flow");
-                finalResult = { ...finalResult, ...singleRes };
+                const singleDirectRes = await app.handleSingleTTS({ 
+                    sessionId, 
+                    text: plan.fullTextForTTS, 
+                    voice: plan.singleSpeakerVoice, 
+                    style: plan.singleSpeakerStyle 
+                });
+                if (!singleDirectRes.success) throw new Error(singleDirectRes.error || "Single TTS Direct failed");
+                finalResult = { ...finalResult, ...singleDirectRes };
                 break;
-            case 'multi_tts_direct':
-                if (!plan.fullTextForTTS || !plan.multiSpeakerConfig || plan.multiSpeakerConfig.length === 0) {
-                    return res.status(400).json({ success: false, error: "AI Plan Error: Missing text or speakers for multi_tts_direct.", plan });
-                }
-                const multiDirectRes = await app.handleMultiTTS({ sessionId, text: plan.fullTextForTTS, speakers: plan.multiSpeakerConfig });
-                if (!multiDirectRes.success) throw new Error(multiDirectRes.error || "Multi TTS Direct failed");
-                finalResult = { ...finalResult, ...multiDirectRes };
-                break;
-            case 'generate_script_then_tts':
-                if (!plan.scriptToGeneratePrompt || !plan.scriptSpeakers || plan.scriptSpeakers.length === 0 || !plan.multiSpeakerConfig || plan.multiSpeakerConfig.length === 0) {
-                    return res.status(400).json({ success: false, error: "AI Plan Error: Missing script prompt, speakers, or TTS config for script generation flow.", plan });
-                }
-                const scriptGenRes = await app.handleGenerateTranscript({ sessionId, prompt: plan.scriptToGeneratePrompt, speakers: plan.scriptSpeakers, style: plan.scriptStyle || 'conversation' });
-                if (!scriptGenRes.success) throw new Error(scriptGenRes.error || "Script generation failed");
-                generatedScriptText = scriptGenRes.transcript;
-                finalResult.generatedScript = generatedScriptText;
-                finalResult.scriptFiles = scriptGenRes.files;
 
-                const multiFromScriptRes = await app.handleMultiTTS({ sessionId, text: generatedScriptText, speakers: plan.multiSpeakerConfig });
-                if (!multiFromScriptRes.success) throw new Error(multiFromScriptRes.error || "Multi TTS from script failed");
-                finalResult = { ...finalResult, ...multiFromScriptRes };
+            case 'single_tts_generate':
+                // Generate script for single speaker
+                if (!plan.scriptToGeneratePrompt) {
+                    return res.status(400).json({ success: false, error: "AI Plan Error: Missing script prompt for single_tts_generate.", plan });
+                }
+                const singleScriptGenRes = await app.handleGenerateTranscript({ 
+                    sessionId, 
+                    prompt: plan.scriptToGeneratePrompt, 
+                    speakers: [], // No specific speakers for single voice narration
+                    style: plan.scriptStyle || 'narration' 
+                });
+                if (!singleScriptGenRes.success) throw new Error(singleScriptGenRes.error || "Single TTS script generation failed");
+                const generatedSingleText = singleScriptGenRes.transcript;
+                finalResult.generatedScript = generatedSingleText;
+                finalResult.scriptFiles = singleScriptGenRes.files;
+
+                const singleGenerateRes = await app.handleSingleTTS({ 
+                    sessionId, 
+                    text: generatedSingleText, 
+                    voice: plan.singleSpeakerVoice, 
+                    style: plan.singleSpeakerStyle 
+                });
+                if (!singleGenerateRes.success) throw new Error(singleGenerateRes.error || "Single TTS from generated script failed");
+                finalResult = { ...finalResult, ...singleGenerateRes };
                 break;
+
+            case 'duo_tts_direct':
+                // User provides ready text for exactly 2 speakers
+                if (!plan.fullTextForTTS || !plan.duoSpeakerConfig || plan.duoSpeakerConfig.length !== 2) {
+                    return res.status(400).json({ success: false, error: "AI Plan Error: Missing text or exactly 2 speakers required for duo_tts_direct.", plan });
+                }
+                const duoDirectRes = await app.handleMultiTTS({ 
+                    sessionId, 
+                    text: plan.fullTextForTTS, 
+                    speakers: plan.duoSpeakerConfig 
+                });
+                if (!duoDirectRes.success) throw new Error(duoDirectRes.error || "Duo TTS Direct failed");
+                finalResult = { ...finalResult, ...duoDirectRes };
+                break;
+
+            case 'duo_tts_generate':
+                // Generate script for exactly 2 speakers
+                if (!plan.scriptToGeneratePrompt || !plan.scriptSpeakers || plan.scriptSpeakers.length !== 2 || !plan.duoSpeakerConfig || plan.duoSpeakerConfig.length !== 2) {
+                    return res.status(400).json({ success: false, error: "AI Plan Error: Missing script prompt or exactly 2 speakers required for duo_tts_generate.", plan });
+                }
+                const duoScriptGenRes = await app.handleGenerateTranscript({ 
+                    sessionId, 
+                    prompt: plan.scriptToGeneratePrompt, 
+                    speakers: plan.scriptSpeakers, 
+                    style: plan.scriptStyle || 'conversation' 
+                });
+                if (!duoScriptGenRes.success) throw new Error(duoScriptGenRes.error || "Duo script generation failed");
+                const generatedDuoText = duoScriptGenRes.transcript;
+                finalResult.generatedScript = generatedDuoText;
+                finalResult.scriptFiles = duoScriptGenRes.files;
+
+                const duoGenerateRes = await app.handleMultiTTS({ 
+                    sessionId, 
+                    text: generatedDuoText, 
+                    speakers: plan.duoSpeakerConfig 
+                });
+                if (!duoGenerateRes.success) throw new Error(duoGenerateRes.error || "Duo TTS from generated script failed");
+                finalResult = { ...finalResult, ...duoGenerateRes };
+                break;
+
+            case 'conversation_tts_direct':
+                // User provides ready text for 3+ speakers
+                if (!plan.fullTextForTTS || !plan.conversationSpeakers || plan.conversationSpeakers.length < 3) {
+                    return res.status(400).json({ success: false, error: "AI Plan Error: Missing text or at least 3 speakers required for conversation_tts_direct.", plan });
+                }
+                const conversationDirectRes = await app.handleConversationTTS({ 
+                    sessionId, 
+                    text: plan.fullTextForTTS, 
+                    speakers: plan.conversationSpeakers 
+                });
+                if (!conversationDirectRes.success) throw new Error(conversationDirectRes.error || "Conversation TTS Direct failed");
+                finalResult = { ...finalResult, ...conversationDirectRes };
+                break;
+
+            case 'conversation_tts_generate':
+                // Generate script for 3+ speakers
+                if (!plan.scriptToGeneratePrompt || !plan.scriptSpeakers || plan.scriptSpeakers.length < 3 || !plan.conversationSpeakers || plan.conversationSpeakers.length < 3) {
+                    return res.status(400).json({ success: false, error: "AI Plan Error: Missing script prompt or at least 3 speakers required for conversation_tts_generate.", plan });
+                }
+                const convScriptGenRes = await app.handleGenerateTranscript({ 
+                    sessionId, 
+                    prompt: plan.scriptToGeneratePrompt, 
+                    speakers: plan.scriptSpeakers, 
+                    style: plan.scriptStyle || 'conversation' 
+                });
+                if (!convScriptGenRes.success) throw new Error(convScriptGenRes.error || "Conversation script generation failed");
+                const generatedConvText = convScriptGenRes.transcript;
+                finalResult.generatedScript = generatedConvText;
+                finalResult.scriptFiles = convScriptGenRes.files;
+
+                const conversationGenerateRes = await app.handleConversationTTS({ 
+                    sessionId, 
+                    text: generatedConvText, 
+                    speakers: plan.conversationSpeakers 
+                });
+                if (!conversationGenerateRes.success) throw new Error(conversationGenerateRes.error || "Conversation TTS from generated script failed");
+                finalResult = { ...finalResult, ...conversationGenerateRes };
+                break;
+
             default:
-                return res.status(400).json({ success: false, error: `AI Plan Error: Unknown task_type '${plan.taskType}'`, plan });
+                return res.status(400).json({ success: false, error: `AI Plan Error: Unknown task_type '${plan.taskType}'. Expected one of: single_tts_direct, single_tts_generate, duo_tts_direct, duo_tts_generate, conversation_tts_direct, conversation_tts_generate`, plan });
         }
         res.json({ success: true, message: 'AI-driven generation successful.', ...finalResult });
     } catch (error) {
@@ -563,3 +767,272 @@ if (require.main === module) {
 }
 
 module.exports = app;
+
+// Internal handler for conversation TTS logic (3+ speakers)
+app.handleConversationTTS = async (params) => {
+    const { sessionId, text, speakers } = params;
+    if (!genAI) throw new Error("AI Service not initialized. Check GEMINI_API_KEY.");
+    
+    // Use AI orchestrator to segment the conversation into 2-speaker groups
+    const orchestratorModel = genAI.getGenerativeModel({ model: ORCHESTRATOR_MODEL });
+    const validVoices = VOICES.join(', ');
+    const segmentationPrompt = `
+You are an AI assistant that segments multi-speaker conversations for text-to-speech generation.
+
+TASK: Analyze the provided conversation text and segment it into groups where each group contains exactly 2 speakers. The goal is to create natural conversation segments that can be processed by a 2-speaker TTS system and produce high-quality audio.
+
+CRITICAL CONSTRAINTS:
+1. Each segment must have exactly 2 speakers
+2. You MUST use only the exact speaker names and voices provided in the INPUT SPEAKERS list below
+3. DO NOT create new speaker names or voice names - only use the ones provided
+4. Each speaker object must use the exact name and voice combination from the input
+
+RULES:
+1. Create natural, flowing dialogue segments - allow speakers to have multiple lines if it improves flow
+2. When a third speaker appears, start a new segment with appropriate context
+3. Maintain conversational context and natural pacing
+4. Use multiline format for natural speech patterns
+5. Preserve the original speaker names and content meaning
+6. Add natural transitions and context when needed for TTS clarity
+
+INPUT TEXT: "${text}"
+
+INPUT SPEAKERS (USE THESE EXACT NAME/VOICE COMBINATIONS ONLY):
+${speakers.map(s => `- ${s.name} (voice: ${s.voice})`).join('\n')}
+
+VALID VOICES (for reference): ${validVoices}
+
+OUTPUT: Return a JSON array of conversation segments using multiline format for natural TTS:
+[
+  {
+    "segmentIndex": 1,
+    "speakers": [{"name": "SpeakerA", "voice": "VoiceA"}, {"name": "SpeakerB", "voice": "VoiceB"}],
+    "text": "SpeakerA: Hello there! I'm glad we could meet today.\\nSpeakerB: Hi, how are you? It's great to see you too.\\nSpeakerA: Let's get started with our discussion.",
+    "description": "Brief description of this segment"
+  },
+  ...
+]
+
+IMPORTANT: 
+- Use \\n for line breaks in the text field to create natural multiline dialogue that will sound better when converted to speech
+- Each speaker can have multiple consecutive lines if it creates better flow
+- ONLY use the exact speaker names and voices from the INPUT SPEAKERS list above
+- DO NOT invent new names like "ModeratorVoice" or other variations
+
+Respond ONLY with the JSON array.`;
+
+    // Save the segmentation prompt for debugging
+    const promptTimestamp = Date.now();
+    const segmentationPromptFileName = `conversation_segmentation_prompt_${promptTimestamp}.json`;
+    const promptData = {
+        originalText: text,
+        speakers: speakers,
+        segmentationPrompt: segmentationPrompt,
+        timestamp: new Date()
+    };
+    await saveSessionData(sessionId, 'prompts', segmentationPromptFileName, promptData);
+    sessions.get(sessionId).files.prompts.push(segmentationPromptFileName);
+
+    const segmentationResult = await orchestratorModel.generateContent(segmentationPrompt);
+    const segmentationJsonString = segmentationResult.response.text().replace(/^```json\s*|```$/g, "").trim();
+    
+    let segments;
+    try {
+        segments = JSON.parse(segmentationJsonString);
+    } catch (e) {
+        console.error("Error parsing conversation segmentation JSON:", segmentationJsonString, e);
+        throw new Error('Failed to parse conversation segmentation from AI orchestrator.');
+    }
+
+    if (!Array.isArray(segments) || segments.length === 0) {
+        throw new Error('AI orchestrator did not return valid conversation segments.');
+    }
+
+    // Validate that all segments use only valid voices and speakers
+    for (let i = 0; i < segments.length; i++) {
+        const segment = segments[i];
+        if (!segment.speakers || segment.speakers.length !== 2) {
+            throw new Error(`Segment ${i + 1} does not have exactly 2 speakers`);
+        }
+        
+        // Validate that each speaker uses a valid voice from the VOICES array
+        for (const speaker of segment.speakers) {
+            if (!VOICES.includes(speaker.voice)) {
+                console.error(`Invalid voice detected in segment ${i + 1}:`, speaker.voice);
+                console.error(`Valid voices are:`, VOICES);
+                console.error(`Segment speakers:`, segment.speakers);
+                throw new Error(`Segment ${i + 1} uses invalid voice '${speaker.voice}'. Valid voices are: ${VOICES.join(', ')}`);
+            }
+            
+            // Validate that the speaker name exists in the original speakers list
+            const originalSpeaker = speakers.find(s => s.name === speaker.name);
+            if (!originalSpeaker) {
+                console.error(`Invalid speaker name detected in segment ${i + 1}:`, speaker.name);
+                console.error(`Original speakers:`, speakers.map(s => s.name));
+                throw new Error(`Segment ${i + 1} uses invalid speaker name '${speaker.name}'. Original speakers are: ${speakers.map(s => s.name).join(', ')}`);
+            }
+            
+            // Validate that the speaker is using the correct voice
+            if (originalSpeaker.voice !== speaker.voice) {
+                console.error(`Voice mismatch in segment ${i + 1} for speaker ${speaker.name}:`, {
+                    expected: originalSpeaker.voice,
+                    actual: speaker.voice
+                });
+                throw new Error(`Segment ${i + 1} speaker '${speaker.name}' should use voice '${originalSpeaker.voice}', not '${speaker.voice}'`);
+            }
+        }
+    }
+
+    // Create initial conversation metadata RIGHT AFTER segmentation, BEFORE audio generation
+    const timestamp = Date.now();
+    const combinedFileName = `conversation_${speakers.map(s=>s.name.replace(/[^a-z0-9]/gi, '_')).join('_')}_${timestamp}.wav`;
+    
+    // Create placeholder segments for metadata (will be updated with audio info later)
+    const placeholderSegments = segments.map((segment, i) => ({
+        segmentIndex: segment.segmentIndex || (i + 1),
+        description: segment.description,
+        speakers: segment.speakers,
+        text: segment.text,
+        audioFile: null,  // Will be filled after audio generation
+        audioUrl: null,   // Will be filled after audio generation
+        status: 'pending' // Will be updated as each segment is processed
+    }));
+
+    const initialConversationData = {
+        originalText: text,
+        speakers: speakers,
+        segments: placeholderSegments,
+        segmentationPrompt: segmentationPrompt,
+        rawSegmentation: segmentationJsonString,
+        timestamp: new Date(),
+        combinedAudioFile: combinedFileName,
+        status: 'segmentation_complete',
+        audioGenerationStatus: 'pending',
+        totalSegments: segments.length
+    };
+
+    // Save initial conversation metadata before any audio generation
+    const conversationMetaFile = `conversation_meta_${timestamp}.json`;
+    await saveSessionData(sessionId, 'transcripts', conversationMetaFile, initialConversationData);
+    sessions.get(sessionId).files.transcripts.push(conversationMetaFile);
+    console.log(`Conversation metadata saved after segmentation, before audio generation: ${conversationMetaFile}`);
+    console.log(`Generated ${segments.length} segments. Starting audio generation...`);
+
+    // Generate audio for each segment
+    const audioSegments = [];
+    const allAudioFiles = [];
+
+    for (let i = 0; i < segments.length; i++) {
+        const segment = segments[i];
+
+        // Generate audio for this segment using duo TTS
+        const segmentResult = await app.handleMultiTTS({
+            sessionId,
+            text: segment.text,
+            speakers: segment.speakers
+        });
+
+        if (!segmentResult.success) {
+            throw new Error(`Failed to generate audio for segment ${i + 1}: ${segmentResult.error}`);
+        }
+
+        audioSegments.push({
+            segmentIndex: segment.segmentIndex || (i + 1),
+            description: segment.description,
+            speakers: segment.speakers,
+            audioFile: segmentResult.audioFile,
+            audioUrl: segmentResult.audioUrl
+        });
+        allAudioFiles.push(segmentResult.audioFile);
+    }
+
+    // Combine all segments into a single audio file
+    const sessionDir = sessions.get(sessionId).directory;
+    const combinedFilePath = path.join(sessionDir, 'audio', combinedFileName);
+
+    // Update conversation metadata with actual segment data (now that audio generation is complete)
+    const updatedConversationData = {
+        ...initialConversationData,
+        segments: audioSegments,
+        status: 'segments_generated',
+        audioGenerationStatus: 'completed',
+        combinationStatus: 'pending'
+    };
+
+    // Update conversation metadata with completed segments
+    await saveSessionData(sessionId, 'transcripts', conversationMetaFile, updatedConversationData);
+    console.log(`Conversation metadata updated with generated audio segments: ${conversationMetaFile}`);
+
+    // Actually concatenate the audio files using ffmpeg
+    let combinationSuccess = false;
+    if (audioSegments.length > 1) {
+        console.log(`Combining ${audioSegments.length} audio segments...`);
+        try {
+            await new Promise((resolve, reject) => {
+                const ffmpegCommand = ffmpeg();
+                
+                // Add all segment audio files as inputs
+                audioSegments.forEach(segment => {
+                    const segmentPath = path.join(sessionDir, 'audio', segment.audioFile);
+                    ffmpegCommand.input(segmentPath);
+                });
+                
+                // Concatenate and output
+                ffmpegCommand
+                    .on('end', () => {
+                        console.log('Audio concatenation completed successfully');
+                        resolve();
+                    })
+                    .on('error', (err) => {
+                        console.error('Error during audio concatenation:', err);
+                        reject(err);
+                    })
+                    .mergeToFile(combinedFilePath, path.join(sessionDir, 'temp'));
+            });
+            
+            // Add the combined file to session files
+            sessions.get(sessionId).files.audio.push(combinedFileName);
+            combinationSuccess = true;
+            
+        } catch (error) {
+            console.error('Failed to concatenate audio segments:', error);
+            // Fall back to using the first segment if concatenation fails
+            console.log('Falling back to first segment as main audio');
+            combinationSuccess = false;
+        }
+    } else if (audioSegments.length === 1) {
+        // If only one segment, copy it as the combined file
+        const singleSegmentPath = path.join(sessionDir, 'audio', audioSegments[0].audioFile);
+        await fs.copyFile(singleSegmentPath, combinedFilePath);
+        sessions.get(sessionId).files.audio.push(combinedFileName);
+        combinationSuccess = true;
+    }
+
+    // Update conversation metadata with final status
+    const finalConversationData = {
+        ...updatedConversationData,
+        status: 'completed',
+        combinationStatus: combinationSuccess ? 'success' : 'failed',
+        combinationCompletedAt: new Date()
+    };
+
+    // Update the metadata file with final status
+    await saveSessionData(sessionId, 'transcripts', conversationMetaFile, finalConversationData);
+    console.log(`Conversation metadata updated with final status: combination ${combinationSuccess ? 'successful' : 'failed'}`);
+
+    // Return the combined audio file as the main audio
+    const mainAudioUrl = `/api/audio/${sessionId}/${combinedFileName}`;
+
+    return {
+        success: true,
+        conversationType: 'segmented',
+        totalSegments: segments.length,
+        segments: audioSegments,
+        allAudioFiles: allAudioFiles,
+        conversationMetaFile: conversationMetaFile,
+        audioFile: combinedFileName,
+        audioUrl: mainAudioUrl,
+        mainAudioUrl: mainAudioUrl,
+        message: `Conversation processed into ${segments.length} segments and combined into a single audio file.`
+    };
+};
