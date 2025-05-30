@@ -4,7 +4,7 @@ A comprehensive Node.js API for text-to-speech generation using Google's Gemini 
 
 ## Features
 
-- **Session Management**: Each request session stores all generated files in organized directories.
+- **Enhanced Session Management**: Each request session stores all generated files in organized directories with comprehensive session loading, saving, and removal capabilities. Sessions automatically load their file contents when selected, providing seamless access to all generated materials.
 - **AI-Driven Generation**: A single endpoint (`/api/ai-driven-generation`) where AI interprets your prompt to orchestrate TTS tasks, including script generation, voice selection, and style.
 - **Single & Multi-Speaker TTS**: Support for both single and multi-speaker audio generation (up to 2 speakers for multi-speaker).
 - **Transcript Generation**: AI-powered prompt and transcript generation.
@@ -12,7 +12,8 @@ A comprehensive Node.js API for text-to-speech generation using Google's Gemini 
 - **File Organization**: Automatic saving of prompts, AI plans, transcripts, and audio files within session-specific directories.
 - **RESTful API**: Easy-to-use and well-documented REST endpoints.
 - **Audio Serving**: Direct audio file serving for generated `.wav` files.
-- **Test Client**: Includes an HTML test client (`public/test-client.html`) for easy interaction with all API features.
+- **Interactive Test Client**: Advanced HTML test client (`public/test-client.html`) with comprehensive session management, integrated file browsing, and automatic file refresh after each generation operation.
+- **Real-time File Synchronization**: All generation operations automatically refresh session files, ensuring the latest content is always displayed without manual intervention.
 - **Comprehensive Testing**: Setup with Jest for unit and integration tests.
 
 ## Requirements
@@ -51,7 +52,7 @@ gemini-tts-api/
 
 1.  **Clone the Repository**:
     ```bash
-    git clone <your-repository-url>
+    git clone https://github.com/markomanninen/gemini-tts-api.git
     cd gemini-tts-api
     ```
 
@@ -116,7 +117,7 @@ The base URL for the API will be `http://localhost:PORT` (e.g., `http://localhos
 
 #### 2. Get Session Information
 * **Endpoint**: `GET /api/session/:sessionId`
-* **Description**: Retrieves details about a specific session.
+* **Description**: Retrieves details about a specific session, including comprehensive metadata and file listings.
 * **Response (Success 200)**:
     ```json
     {
@@ -124,6 +125,10 @@ The base URL for the API will be `http://localhost:PORT` (e.g., `http://localhos
       "session": {
         "id": "unique-session-identifier",
         "created": "timestamp",
+        "name": "Custom session name (if saved)",
+        "taskType": "Session task type (if saved)",
+        "speakers": ["Speaker names (if saved)"],
+        "style": "Session style (if saved)",
         "files": {
           "audio": [],
           "transcripts": [],
@@ -133,9 +138,60 @@ The base URL for the API will be `http://localhost:PORT` (e.g., `http://localhos
     }
     ```
 
+#### 3. Save Session
+* **Endpoint**: `POST /api/session/:sessionId/save`
+* **Description**: Saves session metadata with a custom name, task type, speakers, and style for easy identification and loading.
+* **Request Body**:
+    ```json
+    {
+      "name": "My TTS Project",
+      "taskType": "podcast",
+      "speakers": ["Alice", "Bob"],
+      "style": "conversational"
+    }
+    ```
+* **Response (Success 200)**:
+    ```json
+    {
+      "success": true,
+      "message": "Session saved successfully"
+    }
+    ```
+
+#### 4. List Saved Sessions
+* **Endpoint**: `GET /api/sessions`
+* **Description**: Returns a list of all saved sessions with their metadata.
+* **Response (Success 200)**:
+    ```json
+    {
+      "success": true,
+      "sessions": [
+        {
+          "id": "session-id-1",
+          "name": "My TTS Project",
+          "created": "timestamp",
+          "taskType": "podcast",
+          "speakers": ["Alice", "Bob"],
+          "style": "conversational"
+        }
+      ]
+    }
+    ```
+
+#### 5. Remove Session
+* **Endpoint**: `DELETE /api/session/:sessionId`
+* **Description**: Completely removes a session and all its associated files from the server.
+* **Response (Success 200)**:
+    ```json
+    {
+      "success": true,
+      "message": "Session removed successfully"
+    }
+    ```
+
 ### AI-Driven Generation
 
-#### 3. AI Orchestrated TTS
+#### 6. AI Orchestrated TTS
 * **Endpoint**: `POST /api/ai-driven-generation`
 * **Description**: Takes a natural language prompt from the user. The Gemini AI interprets this prompt to decide on actions (e.g., generate a script, select voices, determine style) and then orchestrates the TTS generation.
 * **Request Body**:
@@ -160,7 +216,7 @@ The base URL for the API will be `http://localhost:PORT` (e.g., `http://localhos
 
 ### Transcript Generation
 
-#### 4. Generate Transcript
+#### 7. Generate Transcript
 * **Endpoint**: `POST /api/generate-transcript`
 * **Description**: Generates a text transcript based on a user prompt, optionally with specified speakers and style.
 * **Request Body**:
@@ -186,7 +242,7 @@ The base URL for the API will be `http://localhost:PORT` (e.g., `http://localhos
 
 ### Text-to-Speech (TTS)
 
-#### 5. Single Speaker TTS
+#### 8. Single Speaker TTS
 * **Endpoint**: `POST /api/tts/single`
 * **Description**: Converts text to speech using a single specified voice.
 * **Request Body**:
@@ -209,7 +265,7 @@ The base URL for the API will be `http://localhost:PORT` (e.g., `http://localhos
     }
     ```
 
-#### 6. Multi-Speaker TTS
+#### 9. Multi-Speaker TTS
 * **Endpoint**: `POST /api/tts/multi`
 * **Description**: Converts text (formatted with speaker labels) to speech using multiple specified voices (max 2 speakers).
 * **Request Body**:
@@ -233,6 +289,8 @@ The base URL for the API will be `http://localhost:PORT` (e.g., `http://localhos
       "audioUrl": "/api/audio/your-active-session-id/multi_timestamp.wav"
     }
     ```
+
+**Note**: All generation endpoints (transcript generation, single TTS, multi-speaker TTS, conversation TTS, and AI-driven generation) automatically trigger a file refresh operation in the test client, ensuring the latest generated files are immediately visible without manual intervention.
 
 ### File Management & Utilities
 
@@ -338,7 +396,24 @@ This project uses **Jest** for automated testing. Test files are located in the 
 
 ## Test Client HTML
 
-A simple HTML test client is provided in `public/test-client.html`. Once the server is running, you can access this client in your browser (e.g., at `http://localhost:3000/test-client.html`) to manually interact with all API endpoints.
+An advanced HTML test client is provided in `public/test-client.html`. Once the server is running, you can access this client in your browser (e.g., at `http://localhost:3000/test-client.html`) to manually interact with all API endpoints.
+
+### Test Client Features
+
+The test client includes comprehensive session management capabilities with enhanced user experience:
+
+- **Session Creation & Management**: Create new sessions and switch between existing ones with intuitive modal interface
+- **Enhanced Session Information Display**: View detailed session info including ID, creation date, custom name, task type, speakers, and style in an organized grid layout
+- **Integrated Session File Browser**: Browse and download all generated files (audio, transcripts, prompts) directly within the session management interface
+- **Automatic File Loading**: Session files are automatically loaded when a session is selected, providing immediate access to all generated content
+- **Real-time File Refresh**: Session files are automatically refreshed after each generation operation (transcript generation, single TTS, multi-speaker TTS, conversation TTS, and AI-driven generation)
+- **Session Persistence**: Save and load sessions with custom names, task types, speakers, and style descriptions for easy organization
+- **Session Removal**: Clean up unwanted sessions and their associated files with confirmation dialogs
+- **Direct Audio Playback**: Play generated audio files directly in the browser with built-in audio controls
+- **File Download**: Download any generated file with a single click
+- **Manual File Refresh**: Additional "Refresh Files" button for manual file list updates when needed
+
+The test client provides an intuitive interface for testing all API functionality without requiring external tools like Postman or curl. The enhanced session management system ensures that users can efficiently organize their TTS projects with automatic file synchronization and comprehensive session metadata tracking.
 
 ## File Structure for Sessions
 
@@ -373,7 +448,7 @@ HTTP status codes (4xx for client errors, 5xx for server errors) are also used a
 * **Multi-Speaker TTS**: Currently supports a maximum of 2 speakers.
 * **Gemini Model Limits**: Subject to token context window limits and other usage policies of the underlying Google Gemini AI models.
 * **Output Format**: TTS output is currently in WAV audio format only.
-* **Session Persistence**: The `sessions` map (tracking active session IDs and their directory paths) is stored in memory. This means if the server restarts, the in-memory map is lost. While the files on the disk persist, accessing them via session ID without an enhancement to reload session data from the filesystem on startup would require knowing the exact file paths. For production, consider a more robust session store (e.g., Redis, a database) if long-term session recall after restarts is critical.
+* **Session Persistence**: The `sessions` map (tracking active session IDs and their directory paths) is stored in memory. This means if the server restarts, the in-memory map is lost. While the files on the disk persist, and the enhanced session management system can reload saved sessions with their metadata, accessing unsaved sessions via session ID without the enhancement would require knowing the exact file paths. For production, consider a more robust session store (e.g., Redis, a database) if long-term session recall after restarts is critical.
 * **API Key Security**: The `GEMINI_API_KEY` is loaded from the `.env` file. Ensure this file is not committed to public repositories (it should be in your `.gitignore`).
 
 ## Contributing
